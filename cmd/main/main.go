@@ -63,7 +63,7 @@ func (s *GoclipListener) startImageListener() {
 		log.Println("Got image:", len(data))
 		entry := &db.Entry{
 			Md5:       common.Md5Digest(data),
-			Mime:      "image/pns",
+			Mime:      "image/png",
 			Data:      data,
 			Timestamp: time.Now(),
 		}
