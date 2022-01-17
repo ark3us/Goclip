@@ -261,7 +261,6 @@ func (s *GoclipUIGtk) ShowSettings() {
 	var err error
 	if s.settingsWin != nil {
 		s.settingsWin.Destroy()
-		return
 	}
 	s.settingsWin, err = gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
 	if err != nil {
