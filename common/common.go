@@ -7,6 +7,7 @@ import (
 )
 
 const AppName = "Goclip"
+const AppId = "net.ark3us.goclip"
 
 func Md5Digest(data []byte) string {
 	hash := md5.Sum(data)

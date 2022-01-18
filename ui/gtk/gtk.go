@@ -59,13 +59,13 @@ func ImageFromBytes(data []byte) *gtk.Image {
 }
 
 type GoclipUIGtk struct {
-	settings    *db.Settings
-	db          db.GoclipDB
-	contentWin  *gtk.Window
-	settingsWin *gtk.Window
-	rows        []*Row
-	searchBox   *gtk.Entry
-	systray     bool
+	settings       *db.Settings
+	db             db.GoclipDB
+	contentWin     *gtk.Window
+	settingsWin    *gtk.Window
+	rows           []*Row
+	searchBox      *gtk.Entry
+	systrayEnabled bool
 }
 
 func New(myDb db.GoclipDB) *GoclipUIGtk {
@@ -75,20 +75,20 @@ func New(myDb db.GoclipDB) *GoclipUIGtk {
 		settings = db.DefaultSettings()
 	}
 	return &GoclipUIGtk{
-		db:       myDb,
-		systray:  false,
-		settings: settings,
+		db:             myDb,
+		systrayEnabled: false,
+		settings:       settings,
 	}
 }
 
 func (s *GoclipUIGtk) EnableSystray(enable bool) {
-	s.systray = enable
+	s.systrayEnabled = enable
 }
 
 func (s *GoclipUIGtk) Start() {
 	log.Println("Starting App")
 	gtk.Init(nil)
-	if s.systray {
+	if s.systrayEnabled {
 		s.startSystray()
 	}
 	gtk.Main()
@@ -158,7 +158,6 @@ func (s *GoclipUIGtk) drawSearchBox(layout *gtk.Box) {
 	s.searchBox, err = gtk.EntryNew()
 	s.searchBox.SetHExpand(true)
 	s.searchBox.Connect("key-release-event", s.onSearching)
-	s.searchBox.GrabFocus()
 
 	row.Add(s.searchBox)
 	layout.Add(row)
@@ -220,8 +219,8 @@ func (s *GoclipUIGtk) drawEntry(layout *gtk.Box, entry *db.Entry) {
 
 func (s *GoclipUIGtk) ShowEntries() {
 	var err error
-	if s.contentWin != nil && s.contentWin.IsVisible() {
-		s.contentWin.Close()
+	if s.contentWin != nil {
+		s.contentWin.Destroy()
 	}
 	s.contentWin, err = gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
 	if err != nil {
@@ -244,17 +243,28 @@ func (s *GoclipUIGtk) ShowEntries() {
 	contentScroll.SetPolicy(gtk.POLICY_NEVER, gtk.POLICY_AUTOMATIC)
 	contentScroll.SetVExpand(true)
 
-	layoutBox, err := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 10)
-	layoutBox.Add(topBox)
-	layoutBox.Add(contentScroll)
+	contentLayout, err := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 10)
+	contentLayout.Add(topBox)
+	contentLayout.Add(contentScroll)
 
-	s.contentWin.Add(layoutBox)
+	s.contentWin.Add(contentLayout)
 	s.contentWin.SetDefaultSize(500, 500)
-	s.contentWin.Connect("focus-out-event", s.contentWin.Destroy)
+	// s.contentWin.SetSkipTaskbarHint(true)
+	s.contentWin.SetTypeHint(gdk.WINDOW_TYPE_HINT_TOOLBAR)
+	s.contentWin.Connect("focus-out-event", s.onContentUnfocus)
 	s.contentWin.SetPosition(gtk.WIN_POS_MOUSE)
 	s.contentWin.SetKeepAbove(true)
 	s.contentWin.ShowAll()
+	s.focusContent()
+}
+func (s *GoclipUIGtk) onContentUnfocus() {
+	s.contentWin.Destroy()
+	s.contentWin = nil
+}
+
+func (s *GoclipUIGtk) focusContent() {
 	s.contentWin.Present()
+	s.searchBox.GrabFocus()
 }
 
 func (s *GoclipUIGtk) ShowSettings() {
@@ -333,5 +343,6 @@ func (s *GoclipUIGtk) ShowSettings() {
 	s.settingsWin.SetDefaultSize(500, 500)
 	s.settingsWin.SetPosition(gtk.WIN_POS_MOUSE)
 	s.settingsWin.SetKeepAbove(true)
+	s.settingsWin.SetSkipTaskbarHint(true)
 	s.settingsWin.ShowAll()
 }
