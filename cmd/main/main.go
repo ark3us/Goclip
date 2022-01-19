@@ -74,7 +74,6 @@ func (s *GoclipListener) startImageListener() {
 func main() {
 	goclipDB := storm.New("/tmp/goclipdb")
 	goclipApp := gtk.New(goclipDB)
-	goclipApp.EnableSystray(true)
 	goclipListener := NewGoclipListener(goclipApp, goclipDB)
 	goclipListener.StartClipboardListener()
 	goclipListener.StartHotkeyListener()

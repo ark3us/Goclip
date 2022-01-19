@@ -1,20 +1,35 @@
 package gtk
 
+// #cgo pkg-config: gdk-3.0
+// #include <gdk/gdk.h>
+// #include <gdk/gdkwindow.h>
+// static GdkWindow *toGdkWindow(void *p) { return (GDK_WINDOW(p)); }
+import "C"
 import (
 	"Goclip/common"
 	"Goclip/db"
 	"github.com/getlantern/systray"
 	"github.com/gotk3/gotk3/gdk"
+	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
 	"golang.design/x/clipboard"
 	"io/ioutil"
 	"log"
+	"os"
 	"strconv"
 	"strings"
+	"unsafe"
 )
 
 const imgMaxSize = 250
 const textMaxSize = 100
+
+type ContentType int8
+
+const (
+	ContentClipboard ContentType = iota
+	ContentApps
+)
 
 type Row struct {
 	Box  *gtk.Box
@@ -59,13 +74,14 @@ func ImageFromBytes(data []byte) *gtk.Image {
 }
 
 type GoclipUIGtk struct {
-	settings       *db.Settings
-	db             db.GoclipDB
-	contentWin     *gtk.Window
-	settingsWin    *gtk.Window
-	rows           []*Row
-	searchBox      *gtk.Entry
-	systrayEnabled bool
+	settings *db.Settings
+	db       db.GoclipDB
+
+	app         *gtk.Application
+	contentWin  *gtk.ApplicationWindow
+	settingsWin *gtk.ApplicationWindow
+	rows        []*Row
+	searchBox   *gtk.Entry
 }
 
 func New(myDb db.GoclipDB) *GoclipUIGtk {
@@ -75,23 +91,20 @@ func New(myDb db.GoclipDB) *GoclipUIGtk {
 		settings = db.DefaultSettings()
 	}
 	return &GoclipUIGtk{
-		db:             myDb,
-		systrayEnabled: false,
-		settings:       settings,
+		db:       myDb,
+		settings: settings,
 	}
-}
-
-func (s *GoclipUIGtk) EnableSystray(enable bool) {
-	s.systrayEnabled = enable
 }
 
 func (s *GoclipUIGtk) Start() {
 	log.Println("Starting App")
-	gtk.Init(nil)
-	if s.systrayEnabled {
-		s.startSystray()
+	var err error
+	s.app, err = gtk.ApplicationNew(common.AppId, glib.APPLICATION_FLAGS_NONE)
+	if err != nil {
+		log.Fatal(err.Error())
 	}
-	gtk.Main()
+	s.app.Connect("activate", s.startSystray)
+	s.app.Run(os.Args)
 	log.Println("App closed")
 }
 
@@ -100,7 +113,7 @@ func (s *GoclipUIGtk) Quit() {
 }
 
 func (s *GoclipUIGtk) startSystray() {
-	go systray.Run(func() {
+	systray.Run(func() {
 		data, _ := ioutil.ReadFile("icon.png")
 		systray.SetIcon(data)
 		systray.SetTitle(common.AppName)
@@ -158,6 +171,7 @@ func (s *GoclipUIGtk) drawSearchBox(layout *gtk.Box) {
 	s.searchBox, err = gtk.EntryNew()
 	s.searchBox.SetHExpand(true)
 	s.searchBox.Connect("key-release-event", s.onSearching)
+	s.searchBox.GrabFocus()
 
 	row.Add(s.searchBox)
 	layout.Add(row)
@@ -203,7 +217,7 @@ func (s *GoclipUIGtk) drawEntry(layout *gtk.Box, entry *db.Entry) {
 		s.db.DeleteEntry(md5)
 		for _, row := range s.rows {
 			if row.Md5 == md5 {
-				row.Box.Destroy()
+				row.Box.Hide()
 			}
 		}
 	})
@@ -220,13 +234,13 @@ func (s *GoclipUIGtk) drawEntry(layout *gtk.Box, entry *db.Entry) {
 func (s *GoclipUIGtk) ShowEntries() {
 	var err error
 	if s.contentWin != nil {
-		s.contentWin.Destroy()
+		// TODO: Destroy() can crash the application
+		s.contentWin.Hide()
 	}
-	s.contentWin, err = gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
+	s.contentWin, err = gtk.ApplicationWindowNew(s.app)
 	if err != nil {
 		log.Fatal(err.Error())
 	}
-	s.contentWin.SetTitle(common.AppName)
 
 	topBox, err := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 10)
 	s.drawSearchBox(topBox)
@@ -248,23 +262,28 @@ func (s *GoclipUIGtk) ShowEntries() {
 	contentLayout.Add(contentScroll)
 
 	s.contentWin.Add(contentLayout)
+	s.contentWin.SetTitle(common.AppName)
 	s.contentWin.SetDefaultSize(500, 500)
-	// s.contentWin.SetSkipTaskbarHint(true)
-	s.contentWin.SetTypeHint(gdk.WINDOW_TYPE_HINT_TOOLBAR)
-	s.contentWin.Connect("focus-out-event", s.onContentUnfocus)
-	s.contentWin.SetPosition(gtk.WIN_POS_MOUSE)
+	s.contentWin.SetSkipTaskbarHint(true)
+	s.contentWin.SetTypeHint(gdk.WINDOW_TYPE_HINT_UTILITY)
 	s.contentWin.SetKeepAbove(true)
+	s.contentWin.SetPosition(gtk.WIN_POS_MOUSE)
+	s.contentWin.Connect("focus-out-event", s.onFocusOut)
+
+	// Trick needed to grab the focus
+	s.contentWin.PresentWithTime(gdk.CURRENT_TIME)
+	w, _ := s.contentWin.GetWindow()
+	p := unsafe.Pointer(w.GObject)
+	C.gdk_window_focus(C.toGdkWindow(p), gdk.CURRENT_TIME)
+
+	s.searchBox.GrabFocus()
 	s.contentWin.ShowAll()
-	s.focusContent()
-}
-func (s *GoclipUIGtk) onContentUnfocus() {
-	s.contentWin.Destroy()
-	s.contentWin = nil
 }
 
-func (s *GoclipUIGtk) focusContent() {
-	s.contentWin.Present()
-	s.searchBox.GrabFocus()
+func (s *GoclipUIGtk) onFocusOut() bool {
+	// TODO: Destroy() can crash the application
+	s.contentWin.Hide()
+	return true
 }
 
 func (s *GoclipUIGtk) ShowSettings() {
@@ -272,7 +291,7 @@ func (s *GoclipUIGtk) ShowSettings() {
 	if s.settingsWin != nil {
 		s.settingsWin.Destroy()
 	}
-	s.settingsWin, err = gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
+	s.settingsWin, err = gtk.ApplicationWindowNew(s.app)
 	if err != nil {
 		log.Fatal(err.Error())
 	}
