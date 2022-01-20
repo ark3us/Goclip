@@ -1,4 +1,4 @@
-package gtk
+package launcher
 
 // #cgo pkg-config: gdk-3.0
 // #include <gdk/gdk.h>
@@ -8,13 +8,11 @@ import "C"
 import (
 	"Goclip/clipboard"
 	"Goclip/common"
+	"Goclip/common/log"
 	"Goclip/db"
-	"github.com/getlantern/systray"
 	"github.com/gotk3/gotk3/gdk"
+	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
-	"io/ioutil"
-	"log"
-	"strconv"
 	"strings"
 	"unsafe"
 )
@@ -23,11 +21,6 @@ const imgMaxSize = 250
 const textMaxSize = 100
 
 type ContentType int8
-
-const (
-	ContentClipboard ContentType = iota
-	ContentApps
-)
 
 type Row struct {
 	Box  *gtk.Box
@@ -38,12 +31,12 @@ type Row struct {
 func ImageFromBytes(data []byte) *gtk.Image {
 	loader, err := gdk.PixbufLoaderNew()
 	if err != nil {
-		log.Println(err.Error())
+		log.Error("Error loading Pixbuf", err.Error())
 		return nil
 	}
 	pixbuf, err := loader.WriteAndReturnPixbuf(data)
 	if err != nil {
-		log.Println(err.Error())
+		log.Error("Error writing Pixbuf", err.Error())
 		return nil
 	}
 	if pixbuf.GetHeight() > imgMaxSize || pixbuf.GetWidth() > imgMaxSize {
@@ -59,81 +52,62 @@ func ImageFromBytes(data []byte) *gtk.Image {
 		}
 		pixbuf, err = pixbuf.ScaleSimple(newWidth, newHeight, gdk.INTERP_HYPER)
 		if err != nil {
-			log.Println(err.Error())
+			log.Error("Error scaling image: ", err.Error())
 			return nil
 		}
 	}
 	image, err := gtk.ImageNewFromPixbuf(pixbuf)
 	if err != nil {
-		log.Println(err.Error())
+		log.Error("Error loading image: ", err.Error())
 		return nil
 	}
 	return image
 }
 
-type GoclipUIGtk struct {
+type GoclipLauncherGtk struct {
 	settings *db.Settings
 	db       db.GoclipDB
 	clip     *clipboard.GoclipBoard
 
-	contentWin  *gtk.Window
-	settingsWin *gtk.Window
-	rows        []*Row
-	searchBox   *gtk.Entry
+	app        *gtk.Application
+	contentWin *gtk.ApplicationWindow
+	rows       []*Row
+	searchBox  *gtk.Entry
 }
 
-func New(myDb db.GoclipDB, myClip *clipboard.GoclipBoard) *GoclipUIGtk {
+func New(myDb db.GoclipDB, myClip *clipboard.GoclipBoard) *GoclipLauncherGtk {
 	settings, err := myDb.GetSettings()
 	if err != nil {
-		log.Println("Warning: Cannot load settings, using default.")
+		log.Warning("Warning: Cannot load settings, using default.")
 		settings = db.DefaultSettings()
 	}
-	return &GoclipUIGtk{
+	return &GoclipLauncherGtk{
 		db:       myDb,
 		clip:     myClip,
 		settings: settings,
 	}
 }
 
-func (s *GoclipUIGtk) Start() {
-	log.Println("Starting App")
-	gtk.Init(nil)
-	s.startSystray()
-	log.Println("App started")
-	gtk.Main()
-	log.Println("App closed")
+func (s *GoclipLauncherGtk) Start() {
+	var err error
+	log.Info("Starting App")
+	s.app, err = gtk.ApplicationNew(common.AppId, glib.APPLICATION_FLAGS_NONE)
+	if err != nil {
+		log.Fatal("Cannot create Application: ", err)
+	}
+	s.app.Connect("activate", s.ShowEntries)
+	s.app.Run(nil)
+	log.Info("App closed")
 }
 
-func (s *GoclipUIGtk) Quit() {
-	gtk.MainQuit()
+func (s *GoclipLauncherGtk) Quit() {
+	s.app.Quit()
 }
 
-func (s *GoclipUIGtk) startSystray() {
-	systray.Run(func() {
-		data, _ := ioutil.ReadFile("icon.png")
-		systray.SetIcon(data)
-		systray.SetTitle(common.AppName)
-		mSettings := systray.AddMenuItem("Settings", "Application settings")
-		go func() {
-			for {
-				<-mSettings.ClickedCh
-				s.ShowSettings()
-			}
-		}()
-		mQuit := systray.AddMenuItem("Quit", "Quit app")
-		go func() {
-			<-mQuit.ClickedCh
-			systray.Quit()
-			s.Quit()
-		}()
-	}, func() {
-	})
-}
-
-func (s *GoclipUIGtk) onSearching() {
+func (s *GoclipLauncherGtk) onSearching() {
 	text, err := s.searchBox.GetText()
 	if err != nil {
-		log.Println(err.Error())
+		log.Error("Error getting text from Entry: ", err.Error())
 		return
 	}
 	for _, row := range s.rows {
@@ -156,10 +130,10 @@ func (s *GoclipUIGtk) onSearching() {
 	}
 }
 
-func (s *GoclipUIGtk) drawSearchBox(layout *gtk.Box) {
+func (s *GoclipLauncherGtk) drawSearchBox(layout *gtk.Box) {
 	row, err := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 10)
 	if err != nil {
-		log.Fatal(err.Error())
+		log.Fatal("Error drawing Entry: ", err.Error())
 	}
 	label, err := gtk.LabelNew("Search:")
 	row.Add(label)
@@ -173,10 +147,10 @@ func (s *GoclipUIGtk) drawSearchBox(layout *gtk.Box) {
 	layout.Add(row)
 }
 
-func (s *GoclipUIGtk) drawEntry(layout *gtk.Box, entry *db.Entry) {
+func (s *GoclipLauncherGtk) drawEntry(layout *gtk.Box, entry *db.Entry) {
 	row, err := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 10)
 	if err != nil {
-		log.Fatal(err.Error())
+		log.Fatal("Error creating box: ", err.Error())
 	}
 	tsLabel, err := gtk.LabelNew(common.TimeToString(entry.Timestamp))
 	row.Add(tsLabel)
@@ -196,7 +170,7 @@ func (s *GoclipUIGtk) drawEntry(layout *gtk.Box, entry *db.Entry) {
 			entryButton.SetImage(image)
 		}
 	} else {
-		log.Println("Warning: invalid entry type:", entry.Mime)
+		log.Warning("Warning: invalid entry type:", entry.Mime)
 		return
 	}
 	entryButton.SetHExpand(true)
@@ -227,15 +201,11 @@ func (s *GoclipUIGtk) drawEntry(layout *gtk.Box, entry *db.Entry) {
 	})
 }
 
-func (s *GoclipUIGtk) ShowEntries() {
+func (s *GoclipLauncherGtk) ShowEntries() {
 	var err error
-	if s.contentWin != nil {
-		// TODO: Destroy() can crash the application
-		s.contentWin.Hide()
-	}
-	s.contentWin, err = gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
+	s.contentWin, err = gtk.ApplicationWindowNew(s.app)
 	if err != nil {
-		log.Fatal(err.Error())
+		log.Fatal("Error creating content Window: ", err.Error())
 	}
 
 	topBox, err := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 10)
@@ -276,88 +246,6 @@ func (s *GoclipUIGtk) ShowEntries() {
 	s.contentWin.ShowAll()
 }
 
-func (s *GoclipUIGtk) onFocusOut() bool {
-	// TODO: Destroy() can crash the application
-	s.contentWin.Hide()
-	return true
-}
-
-func (s *GoclipUIGtk) ShowSettings() {
-	var err error
-	if s.settingsWin != nil {
-		s.settingsWin.Destroy()
-	}
-	s.settingsWin, err = gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
-	if err != nil {
-		log.Fatal(err.Error())
-	}
-	s.settingsWin.SetTitle(common.AppName + ": Settings")
-	layout, err := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 10)
-
-	message, err := gtk.LabelNew("")
-
-	label, err := gtk.LabelNew("Maximum entries:")
-	layout.Add(label)
-
-	inputMaxEntries, err := gtk.EntryNew()
-	inputMaxEntries.SetText(strconv.Itoa(s.settings.MaxEntries))
-	layout.Add(inputMaxEntries)
-
-	label, err = gtk.LabelNew("Shortcut - mod key:")
-	layout.Add(label)
-	inputModKey, err := gtk.EntryNew()
-	inputModKey.SetText(s.settings.HookModKey)
-	layout.Add(inputModKey)
-
-	label, err = gtk.LabelNew("Shortcut - key:")
-	layout.Add(label)
-	inputKey, err := gtk.EntryNew()
-	inputKey.SetText(s.settings.HookKey)
-	layout.Add(inputKey)
-
-	save, err := gtk.ButtonNew()
-	save.SetLabel("Save")
-	save.Connect("clicked", func() {
-		maxEntries, err := inputMaxEntries.GetText()
-		n, err := strconv.Atoi(maxEntries)
-		if err != nil {
-			log.Println(err.Error())
-			return
-		}
-		modKey, err := inputModKey.GetText()
-		hookKey, err := inputKey.GetText()
-		s.settings.MaxEntries = n
-		if modKey != s.settings.HookModKey || hookKey != s.settings.HookKey {
-			s.settings.HookModKey = modKey
-			s.settings.HookKey = hookKey
-			message.SetLabel("Application restart required")
-		}
-		s.db.SaveSettings(s.settings)
-	})
-	layout.Add(save)
-
-	resetSettings, err := gtk.ButtonNew()
-	resetSettings.SetLabel("Reset settings")
-	resetSettings.Connect("clicked", func() {
-		s.settings = db.DefaultSettings()
-		s.db.SaveSettings(s.settings)
-		message.SetLabel("Application restart required")
-	})
-	layout.Add(resetSettings)
-
-	resetDb, err := gtk.ButtonNew()
-	resetDb.SetLabel("Reset Database")
-	resetDb.Connect("clicked", func() {
-		s.db.Drop()
-		message.SetLabel("Application restart required")
-	})
-	layout.Add(resetDb)
-
-	layout.Add(message)
-	s.settingsWin.Add(layout)
-	s.settingsWin.SetDefaultSize(500, 500)
-	s.settingsWin.SetPosition(gtk.WIN_POS_MOUSE)
-	s.settingsWin.SetKeepAbove(true)
-	s.settingsWin.SetSkipTaskbarHint(true)
-	s.settingsWin.ShowAll()
+func (s *GoclipLauncherGtk) onFocusOut() {
+	s.contentWin.Destroy()
 }

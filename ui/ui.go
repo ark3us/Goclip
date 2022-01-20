@@ -1,7 +1,11 @@
 package ui
 
-type GoclipUI interface {
+type GoclipLauncher interface {
 	ShowEntries()
+	Start()
+}
+
+type GoclipSettings interface {
 	ShowSettings()
 	Start()
 }

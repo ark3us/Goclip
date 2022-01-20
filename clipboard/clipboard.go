@@ -2,10 +2,10 @@ package clipboard
 
 import (
 	"Goclip/common"
+	"Goclip/common/log"
 	"Goclip/db"
 	"context"
 	"golang.design/x/clipboard"
-	"log"
 	"time"
 )
 
@@ -25,7 +25,7 @@ func (s *GoclipBoard) StartListener() {
 func (s *GoclipBoard) startTextListener() {
 	ch := clipboard.Watch(context.TODO(), clipboard.FmtText)
 	for data := range ch {
-		log.Println("Got text:", string(data))
+		log.Info("Got text: ", string(data))
 		entry := &db.Entry{
 			Md5:       common.Md5Digest(data),
 			Mime:      "text/plain",
@@ -39,7 +39,7 @@ func (s *GoclipBoard) startTextListener() {
 func (s *GoclipBoard) startImageListener() {
 	ch := clipboard.Watch(context.TODO(), clipboard.FmtImage)
 	for data := range ch {
-		log.Println("Got image:", len(data))
+		log.Info("Got image: ", len(data))
 		entry := &db.Entry{
 			Md5:       common.Md5Digest(data),
 			Mime:      "image/png",
@@ -64,6 +64,6 @@ func (s *GoclipBoard) WriteEntry(entry *db.Entry) {
 	} else if entry.IsImage() {
 		clipboard.Write(clipboard.FmtImage, entry.Data)
 	} else {
-		log.Println("Warning: Invalid entry mimetype:", entry.Mime)
+		log.Warning("Warning: Invalid entry mimetype: ", entry.Mime)
 	}
 }

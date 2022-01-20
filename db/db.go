@@ -41,5 +41,5 @@ type GoclipDB interface {
 	GetEntries() []*Entry
 	GetSettings() (*Settings, error)
 	SaveSettings(settings *Settings) error
-	Drop()
+	Drop() error
 }
