@@ -1,12 +1,23 @@
 package db
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 type Entry struct {
 	Md5       string    `storm:"id"`
 	Timestamp time.Time `storm:"index"`
 	Mime      string
 	Data      []byte
+}
+
+func (s *Entry) IsText() bool {
+	return strings.Contains(s.Mime, "text")
+}
+
+func (s *Entry) IsImage() bool {
+	return strings.Contains(s.Mime, "image")
 }
 
 type Settings struct {

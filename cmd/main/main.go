@@ -1,16 +1,12 @@
 package main
 
 import (
-	"Goclip/common"
+	"Goclip/clipboard"
 	"Goclip/db"
 	"Goclip/db/storm"
 	"Goclip/ui"
 	"Goclip/ui/gtk"
-	"context"
 	hook "github.com/robotn/gohook"
-	"golang.design/x/clipboard"
-	"log"
-	"time"
 )
 
 type GoclipListener struct {
@@ -20,11 +16,6 @@ type GoclipListener struct {
 
 func NewGoclipListener(goclipApp ui.GoclipUI, goclipDB db.GoclipDB) *GoclipListener {
 	return &GoclipListener{app: goclipApp, db: goclipDB}
-}
-
-func (s *GoclipListener) StartClipboardListener() {
-	go s.startTextListener()
-	go s.startImageListener()
 }
 
 func (s *GoclipListener) StartHotkeyListener() {
@@ -43,39 +34,12 @@ func (s *GoclipListener) startHotkeyListener() {
 	<-hook.Process(start)
 }
 
-func (s *GoclipListener) startTextListener() {
-	ch := clipboard.Watch(context.TODO(), clipboard.FmtText)
-	for data := range ch {
-		log.Println("Got text:", string(data))
-		entry := &db.Entry{
-			Md5:       common.Md5Digest(data),
-			Mime:      "text/plain",
-			Data:      data,
-			Timestamp: time.Now(),
-		}
-		s.db.AddEntry(entry)
-	}
-}
-
-func (s *GoclipListener) startImageListener() {
-	ch := clipboard.Watch(context.TODO(), clipboard.FmtImage)
-	for data := range ch {
-		log.Println("Got image:", len(data))
-		entry := &db.Entry{
-			Md5:       common.Md5Digest(data),
-			Mime:      "image/png",
-			Data:      data,
-			Timestamp: time.Now(),
-		}
-		s.db.AddEntry(entry)
-	}
-}
-
 func main() {
 	goclipDB := storm.New("/tmp/goclipdb")
-	goclipApp := gtk.New(goclipDB)
+	goclipCb := clipboard.New(goclipDB)
+	goclipApp := gtk.New(goclipDB, goclipCb)
 	goclipListener := NewGoclipListener(goclipApp, goclipDB)
-	goclipListener.StartClipboardListener()
+	goclipCb.StartListener()
 	goclipListener.StartHotkeyListener()
 	goclipApp.Start()
 }

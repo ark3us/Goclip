@@ -6,16 +6,14 @@ package gtk
 // static GdkWindow *toGdkWindow(void *p) { return (GDK_WINDOW(p)); }
 import "C"
 import (
+	"Goclip/clipboard"
 	"Goclip/common"
 	"Goclip/db"
 	"github.com/getlantern/systray"
 	"github.com/gotk3/gotk3/gdk"
-	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
-	"golang.design/x/clipboard"
 	"io/ioutil"
 	"log"
-	"os"
 	"strconv"
 	"strings"
 	"unsafe"
@@ -76,15 +74,15 @@ func ImageFromBytes(data []byte) *gtk.Image {
 type GoclipUIGtk struct {
 	settings *db.Settings
 	db       db.GoclipDB
+	clip     *clipboard.GoclipBoard
 
-	app         *gtk.Application
-	contentWin  *gtk.ApplicationWindow
-	settingsWin *gtk.ApplicationWindow
+	contentWin  *gtk.Window
+	settingsWin *gtk.Window
 	rows        []*Row
 	searchBox   *gtk.Entry
 }
 
-func New(myDb db.GoclipDB) *GoclipUIGtk {
+func New(myDb db.GoclipDB, myClip *clipboard.GoclipBoard) *GoclipUIGtk {
 	settings, err := myDb.GetSettings()
 	if err != nil {
 		log.Println("Warning: Cannot load settings, using default.")
@@ -92,19 +90,17 @@ func New(myDb db.GoclipDB) *GoclipUIGtk {
 	}
 	return &GoclipUIGtk{
 		db:       myDb,
+		clip:     myClip,
 		settings: settings,
 	}
 }
 
 func (s *GoclipUIGtk) Start() {
 	log.Println("Starting App")
-	var err error
-	s.app, err = gtk.ApplicationNew(common.AppId, glib.APPLICATION_FLAGS_NONE)
-	if err != nil {
-		log.Fatal(err.Error())
-	}
-	s.app.Connect("activate", s.startSystray)
-	s.app.Run(os.Args)
+	gtk.Init(nil)
+	s.startSystray()
+	log.Println("App started")
+	gtk.Main()
 	log.Println("App closed")
 }
 
@@ -186,8 +182,7 @@ func (s *GoclipUIGtk) drawEntry(layout *gtk.Box, entry *db.Entry) {
 	row.Add(tsLabel)
 
 	entryButton, err := gtk.ButtonNew()
-	fmt := clipboard.FmtText
-	if strings.Contains(entry.Mime, "text") {
+	if entry.IsText() {
 		var text string
 		if len(entry.Data) > textMaxSize {
 			text = string(append(entry.Data[:textMaxSize], " ..."...))
@@ -195,17 +190,18 @@ func (s *GoclipUIGtk) drawEntry(layout *gtk.Box, entry *db.Entry) {
 			text = string(entry.Data)
 		}
 		entryButton.SetLabel(text)
-	} else {
+	} else if entry.IsImage() {
 		image := ImageFromBytes(entry.Data)
 		if image != nil {
 			entryButton.SetImage(image)
 		}
-		fmt = clipboard.FmtImage
+	} else {
+		log.Println("Warning: invalid entry type:", entry.Mime)
+		return
 	}
 	entryButton.SetHExpand(true)
-	data := entry.Data
 	entryButton.Connect("clicked", func() {
-		clipboard.Write(fmt, data)
+		s.clip.WriteEntry(entry)
 		s.contentWin.Close()
 	})
 	row.Add(entryButton)
@@ -217,7 +213,7 @@ func (s *GoclipUIGtk) drawEntry(layout *gtk.Box, entry *db.Entry) {
 		s.db.DeleteEntry(md5)
 		for _, row := range s.rows {
 			if row.Md5 == md5 {
-				row.Box.Hide()
+				row.Box.Destroy()
 			}
 		}
 	})
@@ -237,7 +233,7 @@ func (s *GoclipUIGtk) ShowEntries() {
 		// TODO: Destroy() can crash the application
 		s.contentWin.Hide()
 	}
-	s.contentWin, err = gtk.ApplicationWindowNew(s.app)
+	s.contentWin, err = gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
 	if err != nil {
 		log.Fatal(err.Error())
 	}
@@ -291,7 +287,7 @@ func (s *GoclipUIGtk) ShowSettings() {
 	if s.settingsWin != nil {
 		s.settingsWin.Destroy()
 	}
-	s.settingsWin, err = gtk.ApplicationWindowNew(s.app)
+	s.settingsWin, err = gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
 	if err != nil {
 		log.Fatal(err.Error())
 	}
