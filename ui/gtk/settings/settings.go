@@ -1,9 +1,9 @@
 package settings
 
 import (
-	"Goclip/common"
-	"Goclip/common/log"
 	"Goclip/db"
+	"Goclip/goclip"
+	"Goclip/goclip/log"
 	"github.com/getlantern/systray"
 	"github.com/gotk3/gotk3/gtk"
 	"io/ioutil"
@@ -23,12 +23,19 @@ func (s *GoclipSettingsGtk) Run() {
 	systray.Run(func() {
 		data, _ := ioutil.ReadFile("icon.png")
 		systray.SetIcon(data)
-		systray.SetTitle(common.AppName)
+		systray.SetTitle(goclip.AppName)
 		mSettings := systray.AddMenuItem("Settings", "Application settings")
 		go func() {
 			for {
 				<-mSettings.ClickedCh
 				s.ShowSettings()
+			}
+		}()
+		mReload := systray.AddMenuItem("Reload apps", "Reload apps cache")
+		go func() {
+			for {
+				<-mReload.ClickedCh
+				go s.db.RefreshApps()
 			}
 		}()
 		mQuit := systray.AddMenuItem("Quit", "Quit app")
@@ -54,7 +61,7 @@ func (s *GoclipSettingsGtk) ShowSettings() {
 	if err != nil {
 		log.Fatal("Error creating settings Window: ", err.Error())
 	}
-	s.settingsWin.SetTitle(common.AppName + ": Settings")
+	s.settingsWin.SetTitle(goclip.AppName + ": Settings")
 	layout, err := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 10)
 
 	message, err := gtk.LabelNew("")

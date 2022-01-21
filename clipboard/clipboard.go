@@ -1,9 +1,9 @@
 package clipboard
 
 import (
-	"Goclip/common"
-	"Goclip/common/log"
 	"Goclip/db"
+	"Goclip/goclip"
+	"Goclip/goclip/log"
 	"context"
 	"golang.design/x/clipboard"
 	"time"
@@ -27,7 +27,7 @@ func (s *GoclipBoard) startTextListener() {
 	for data := range ch {
 		log.Info("Got text: ", string(data))
 		entry := &db.ClipboardEntry{
-			Md5:       common.Md5Digest(data),
+			Md5:       goclip.Md5Digest(data),
 			Mime:      "text/plain",
 			Data:      data,
 			Timestamp: time.Now(),
@@ -41,7 +41,7 @@ func (s *GoclipBoard) startImageListener() {
 	for data := range ch {
 		log.Info("Got image: ", len(data))
 		entry := &db.ClipboardEntry{
-			Md5:       common.Md5Digest(data),
+			Md5:       goclip.Md5Digest(data),
 			Mime:      "image/png",
 			Data:      data,
 			Timestamp: time.Now(),

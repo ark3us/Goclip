@@ -7,9 +7,9 @@ package launcher
 import "C"
 import (
 	"Goclip/clipboard"
-	"Goclip/common"
-	"Goclip/common/log"
 	"Goclip/db"
+	"Goclip/goclip"
+	"Goclip/goclip/log"
 	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
@@ -93,9 +93,12 @@ func ImageFromBytes(data []byte, maxSize int) *gtk.Image {
 }
 
 func ImageFromFile(fn string, maxSize int) *gtk.Image {
+	if fn == "" {
+		return nil
+	}
 	data, err := ioutil.ReadFile(fn)
 	if err != nil {
-		// log.Error("Error opening icon: ", err)
+		log.Error("Error opening icon: ", fn)
 		return nil
 	}
 	return ImageFromBytes(data, maxSize)
@@ -119,7 +122,7 @@ func NewClipboardLauncher(myDb db.GoclipDB, myClip *clipboard.GoclipBoard) *Gocl
 		db:    myDb,
 		clip:  myClip,
 		lType: LauncherTypeClipboard,
-		title: common.AppName + ": Clipboard",
+		title: goclip.AppName + ": Clipboard",
 	}
 }
 
@@ -127,14 +130,14 @@ func NewAppsLauncher(myDb db.GoclipDB) *GoclipLauncherGtk {
 	return &GoclipLauncherGtk{
 		db:    myDb,
 		lType: LauncherTypeApps,
-		title: common.AppName + ": Applications",
+		title: goclip.AppName + ": Applications",
 	}
 }
 
 func (s *GoclipLauncherGtk) Run() {
 	var err error
 	log.Info("Starting App")
-	s.app, err = gtk.ApplicationNew(common.AppId, glib.APPLICATION_FLAGS_NONE)
+	s.app, err = gtk.ApplicationNew(goclip.AppId, glib.APPLICATION_FLAGS_NONE)
 	if err != nil {
 		log.Fatal("Cannot create Application: ", err)
 	}
@@ -186,7 +189,7 @@ func (s *GoclipLauncherGtk) drawEntry(entry *db.ClipboardEntry) {
 	if err != nil {
 		log.Fatal("Error creating box: ", err)
 	}
-	tsLabel, err := gtk.LabelNew(common.TimeToString(entry.Timestamp, false))
+	tsLabel, err := gtk.LabelNew(goclip.TimeToString(entry.Timestamp, false))
 	row.Add(tsLabel)
 
 	entryButton, err := gtk.ButtonNew()
@@ -240,7 +243,7 @@ func (s *GoclipLauncherGtk) drawApp(entry *db.AppEntry) {
 	if err != nil {
 		log.Fatal("Error creating box: ", err)
 	}
-	tsLabel, err := gtk.LabelNew(common.TimeToString(entry.AccessTime, false))
+	tsLabel, err := gtk.LabelNew(goclip.TimeToString(entry.AccessTime, false))
 	row.Add(tsLabel)
 
 	image := ImageFromFile(entry.Icon, iconMaxSize)

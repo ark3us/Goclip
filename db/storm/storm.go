@@ -1,101 +1,16 @@
 package storm
 
 import (
-	"Goclip/common/log"
 	"Goclip/db"
-	"bufio"
+	"Goclip/goclip/apputils"
+	"Goclip/goclip/log"
 	"github.com/asdine/storm/v3"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"time"
 )
-
-func aTime(name string) (atime time.Time) {
-	fi, err := os.Stat(name)
-	if err != nil {
-		return
-	}
-	stat := fi.Sys().(*syscall.Stat_t)
-	atime = time.Unix(stat.Atim.Sec, stat.Atim.Nsec)
-	return
-}
-
-func removeExecFieldCodes(value string) string {
-	return strings.NewReplacer(
-		"%f", "",
-		"%F", "",
-		"%u", "",
-		"%U", "",
-		"%d", "",
-		"%D", "",
-		"%n", "",
-		"%N", "",
-		"%i", "",
-		"%c", "",
-		"%k", "",
-		"%v", "",
-		"%m", "").Replace(value)
-}
-
-func getDesktopFileValue(line string, prefix string) string {
-	if !strings.HasPrefix(line, prefix) {
-		return ""
-	}
-	parts := strings.Split(line, prefix)
-	if len(parts) < 2 {
-		return ""
-	}
-	return removeExecFieldCodes(strings.Join(parts[1:], prefix))
-}
-
-func parseDesktopFile(fn string) ([]*db.AppEntry, error) {
-	file, err := os.Open(fn)
-	if err != nil {
-		log.Error("Cannot open file: ", err)
-		return nil, err
-	}
-	var entries []*db.AppEntry
-	var entry *db.AppEntry
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if strings.HasPrefix(line, "[") {
-			if entry != nil && entry.Exec != "" {
-				entries = append(entries, entry)
-			}
-			entry = &db.AppEntry{
-				AccessTime: aTime(fn),
-				File:       fn,
-			}
-		}
-
-		name := getDesktopFileValue(line, "Name=")
-		if name != "" {
-			entry.Name = name
-		}
-		icon := getDesktopFileValue(line, "Icon=")
-		if icon != "" {
-			entry.Icon = icon
-		}
-		exec := getDesktopFileValue(line, "Exec=")
-		if exec != "" {
-			entry.Exec = exec
-		}
-		term := getDesktopFileValue(line, "Terminal=")
-		if term != "" {
-			if term == "true" {
-				entry.Terminal = true
-			}
-		}
-	}
-	if entry.Exec != "" {
-		entries = append(entries, entry)
-	}
-	return entries, nil
-}
 
 type GoclipDBStorm struct {
 	dbFile string
@@ -271,7 +186,7 @@ func (s *GoclipDBStorm) RefreshApps() error {
 		n := 0
 		for _, finfo := range files {
 			ffile := filepath.Join(path, finfo.Name())
-			entries, err := parseDesktopFile(ffile)
+			entries, err := apputils.ParseDesktopFile(ffile)
 			if err != nil {
 				continue
 			}

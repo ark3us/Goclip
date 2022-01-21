@@ -1,4 +1,4 @@
-package common
+package goclip
 
 import (
 	"crypto/md5"

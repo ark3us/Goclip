@@ -7,6 +7,7 @@ This application is just a proof-of-concept and might be highly unstable.
 ## Features
 
 - Clipboard text and image support (https://github.com/golang-design/clipboard)
+- App launcher
 - Data persistence (https://github.com/asdine/storm)
 - System shortcut (https://github.com/robotn/gohook)
 - Simple UI (https://github.com/gotk3/gotk3)
@@ -28,6 +29,13 @@ sudo apt install libgtk-3-dev libcairo2-dev libglib2.0-dev
 # For https://github.com/getlantern/systray
 sudo apt-get install gcc libgtk-3-dev libappindicator3-dev
 ```
+
+# Usage
+
+## Default keys
+
+- Alt+z : open clipboard manager
+- Alt+x : open app launcher
 
 ## Improvements
 

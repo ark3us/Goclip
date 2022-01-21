@@ -2,9 +2,9 @@ package main
 
 import (
 	"Goclip/clipboard"
-	"Goclip/common/log"
 	"Goclip/db"
 	"Goclip/db/storm"
+	"Goclip/goclip/log"
 	"Goclip/ui"
 	"Goclip/ui/gtk/launcher"
 	"Goclip/ui/gtk/settings"
