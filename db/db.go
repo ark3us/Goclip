@@ -21,7 +21,11 @@ func (s *ClipboardEntry) IsImage() bool {
 }
 
 type AppEntry struct {
-	Cmd        string    `storm:"id"`
+	Exec       string `storm:"id"`
+	File       string
+	Name       string
+	Icon       string
+	Terminal   bool
 	AccessTime time.Time `storm:"index"`
 }
 
@@ -52,6 +56,7 @@ type GoclipDB interface {
 	RefreshApps() error
 	GetApps() []*AppEntry
 	GetApp(cmd string) (*AppEntry, error)
+	UpdateAppAccess(entry *AppEntry)
 
 	GetSettings() (*Settings, error)
 	SaveSettings(settings *Settings) error

@@ -14,7 +14,10 @@ func Md5Digest(data []byte) string {
 	return hex.EncodeToString(hash[:])
 }
 
-func TimeToString(t time.Time) string {
-	// return t.Format("2006-01-02 15:04:05")
-	return t.Format("15:04:05")
+func TimeToString(t time.Time, full bool) string {
+	if full {
+		return t.Format("2006-01-02 15:04:05")
+	} else {
+		return t.Format("15:04:05")
+	}
 }

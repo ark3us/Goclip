@@ -59,24 +59,51 @@ func (s *GoclipSettingsGtk) ShowSettings() {
 
 	message, err := gtk.LabelNew("")
 
+	grid, _ := gtk.GridNew()
+	grid.SetRowSpacing(10)
+	grid.SetColumnSpacing(10)
 	label, err := gtk.LabelNew("Maximum entries:")
-	layout.Add(label)
+	label.SetHAlign(gtk.ALIGN_END)
+	grid.Attach(label, 0, 0, 1, 1)
 
 	inputMaxEntries, err := gtk.EntryNew()
 	inputMaxEntries.SetText(strconv.Itoa(settings.MaxEntries))
-	layout.Add(inputMaxEntries)
+	inputMaxEntries.SetHExpand(true)
+	grid.Attach(inputMaxEntries, 1, 0, 1, 1)
 
-	label, err = gtk.LabelNew("Shortcut - mod key:")
-	layout.Add(label)
+	label, err = gtk.LabelNew("Clipboard Mod key:")
+	label.SetHAlign(gtk.ALIGN_END)
+	grid.Attach(label, 0, 1, 1, 1)
+
 	inputModKey, err := gtk.EntryNew()
 	inputModKey.SetText(settings.ClipboardModKey)
-	layout.Add(inputModKey)
+	grid.Attach(inputModKey, 1, 1, 1, 1)
 
-	label, err = gtk.LabelNew("Shortcut - key:")
-	layout.Add(label)
+	label, err = gtk.LabelNew("Clipboard key:")
+	label.SetHAlign(gtk.ALIGN_END)
+	grid.Attach(label, 0, 2, 1, 1)
+
 	inputKey, err := gtk.EntryNew()
 	inputKey.SetText(settings.ClipboardKey)
-	layout.Add(inputKey)
+	grid.Attach(inputKey, 1, 2, 1, 1)
+
+	label, err = gtk.LabelNew("Applications Mod key:")
+	label.SetHAlign(gtk.ALIGN_END)
+	grid.Attach(label, 0, 3, 1, 1)
+
+	inputAppModKey, err := gtk.EntryNew()
+	inputAppModKey.SetText(settings.AppsModKey)
+	grid.Attach(inputAppModKey, 1, 3, 1, 1)
+
+	label, err = gtk.LabelNew("Applications key:")
+	label.SetHAlign(gtk.ALIGN_END)
+	grid.Attach(label, 0, 4, 1, 1)
+
+	inputAppKey, err := gtk.EntryNew()
+	inputAppKey.SetText(settings.AppsKey)
+	grid.Attach(inputAppKey, 1, 4, 1, 1)
+
+	layout.Add(grid)
 
 	save, err := gtk.ButtonNew()
 	save.SetLabel("Save")
@@ -90,10 +117,14 @@ func (s *GoclipSettingsGtk) ShowSettings() {
 		}
 		modKey, err := inputModKey.GetText()
 		hookKey, err := inputKey.GetText()
+		appModKey, err := inputModKey.GetText()
+		appHookKey, err := inputKey.GetText()
 		settings.MaxEntries = n
-		if modKey != settings.ClipboardModKey || hookKey != settings.ClipboardKey {
+		if modKey != settings.ClipboardModKey || hookKey != settings.ClipboardKey || appModKey != settings.AppsModKey || appHookKey != settings.AppsKey {
 			settings.ClipboardModKey = modKey
 			settings.ClipboardKey = hookKey
+			settings.AppsModKey = appModKey
+			settings.AppsKey = appHookKey
 			message.SetLabel("Application restart required")
 		}
 		s.db.SaveSettings(settings)

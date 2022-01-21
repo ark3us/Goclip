@@ -11,7 +11,11 @@ import (
 	hook "github.com/robotn/gohook"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 )
+
+var dbFile = "~/goclip_db"
 
 const (
 	argClipboard = "clipboard"
@@ -61,8 +65,12 @@ func (s *GoclipListener) startHotkeyListener() {
 }
 
 func main() {
-	log.Debug = true
-	goclipDB := storm.New("/tmp/goclipdb")
+	// log.Debug = true
+	if strings.HasPrefix(dbFile, "~/") {
+		dirname, _ := os.UserHomeDir()
+		dbFile = filepath.Join(dirname, dbFile[2:])
+	}
+	goclipDB := storm.New(dbFile)
 	goclipCb := clipboard.New(goclipDB)
 	if len(os.Args) > 1 && os.Args[1] == argClipboard {
 		log.Info("Staring clipboard launcher")

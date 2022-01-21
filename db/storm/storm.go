@@ -3,6 +3,7 @@ package storm
 import (
 	"Goclip/common/log"
 	"Goclip/db"
+	"bufio"
 	"github.com/asdine/storm/v3"
 	"io/ioutil"
 	"os"
@@ -20,6 +21,80 @@ func aTime(name string) (atime time.Time) {
 	stat := fi.Sys().(*syscall.Stat_t)
 	atime = time.Unix(stat.Atim.Sec, stat.Atim.Nsec)
 	return
+}
+
+func removeExecFieldCodes(value string) string {
+	return strings.NewReplacer(
+		"%f", "",
+		"%F", "",
+		"%u", "",
+		"%U", "",
+		"%d", "",
+		"%D", "",
+		"%n", "",
+		"%N", "",
+		"%i", "",
+		"%c", "",
+		"%k", "",
+		"%v", "",
+		"%m", "").Replace(value)
+}
+
+func getDesktopFileValue(line string, prefix string) string {
+	if !strings.HasPrefix(line, prefix) {
+		return ""
+	}
+	parts := strings.Split(line, prefix)
+	if len(parts) < 2 {
+		return ""
+	}
+	return removeExecFieldCodes(strings.Join(parts[1:], prefix))
+}
+
+func parseDesktopFile(fn string) ([]*db.AppEntry, error) {
+	file, err := os.Open(fn)
+	if err != nil {
+		log.Error("Cannot open file: ", err)
+		return nil, err
+	}
+	var entries []*db.AppEntry
+	var entry *db.AppEntry
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, "[") {
+			if entry != nil && entry.Exec != "" {
+				entries = append(entries, entry)
+			}
+			entry = &db.AppEntry{
+				AccessTime: aTime(fn),
+				File:       fn,
+			}
+		}
+
+		name := getDesktopFileValue(line, "Name=")
+		if name != "" {
+			entry.Name = name
+		}
+		icon := getDesktopFileValue(line, "Icon=")
+		if icon != "" {
+			entry.Icon = icon
+		}
+		exec := getDesktopFileValue(line, "Exec=")
+		if exec != "" {
+			entry.Exec = exec
+		}
+		term := getDesktopFileValue(line, "Terminal=")
+		if term != "" {
+			if term == "true" {
+				entry.Terminal = true
+			}
+		}
+	}
+	if entry.Exec != "" {
+		entries = append(entries, entry)
+	}
+	return entries, nil
 }
 
 type GoclipDBStorm struct {
@@ -184,30 +259,34 @@ func (s *GoclipDBStorm) RefreshApps() error {
 	}
 	defer s.closeDb()
 
-	pathEnv := os.Getenv("PATH")
+	pathEnv := os.Getenv("XDG_DATA_DIRS")
 	paths := strings.Split(pathEnv, ":")
 	for _, path := range paths {
+		path = filepath.Join(path, "applications")
 		files, err := ioutil.ReadDir(path)
 		if err != nil {
 			log.Warning("Cannot read dir content: ", err)
 			continue
 		}
+		n := 0
 		for _, finfo := range files {
-			// Exec permission for someone
-			if finfo.Mode().Perm()|0111 != 0 {
-				ffile := filepath.Join(path, finfo.Name())
-				entry := &db.AppEntry{
-					Cmd:        ffile,
-					AccessTime: aTime(ffile),
-				}
+			ffile := filepath.Join(path, finfo.Name())
+			entries, err := parseDesktopFile(ffile)
+			if err != nil {
+				continue
+			}
+			for _, entry := range entries {
 				if err := s.db.Save(entry); err != nil {
 					log.Error("Cannot save entry, aborting: ", err)
 					return err
 				}
 			}
+			n++
 		}
+		log.Info(path, ": ", n)
 	}
-	log.Info("Refresh complete.")
+	tot, _ := s.db.Count(&db.AppEntry{})
+	log.Info("Refresh complete, added apps: ", tot)
 	return nil
 }
 
@@ -232,9 +311,20 @@ func (s *GoclipDBStorm) GetApp(cmd string) (*db.AppEntry, error) {
 	defer s.closeDb()
 
 	entry := db.AppEntry{}
-	if err := s.db.One("Cmd", cmd, &entry); err != nil {
+	if err := s.db.One("Exec", cmd, &entry); err != nil {
 		log.Error("Error getting db entry:", err)
 		return nil, err
 	}
 	return &entry, nil
+}
+
+func (s *GoclipDBStorm) UpdateAppAccess(entry *db.AppEntry) {
+	if err := s.openDb(); err != nil {
+		return
+	}
+	defer s.closeDb()
+	entry.AccessTime = time.Now()
+	if err := s.db.Update(entry); err != nil {
+		log.Warning("Error updating entry: ", err)
+	}
 }
