@@ -13,6 +13,7 @@ import (
 	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
+	"os/exec"
 	"strings"
 	"unsafe"
 )
@@ -20,23 +21,48 @@ import (
 const imgMaxSize = 250
 const textMaxSize = 100
 
-type ContentType int8
+type LauncherType int8
+
+const (
+	LauncherTypeClipboard LauncherType = iota
+	LauncherTypeApps
+)
 
 type Row struct {
-	Box  *gtk.Box
-	Md5  string
-	Mime string
+	Box      *gtk.Box
+	Id       string
+	DataType string
+}
+
+func (s *Row) IsSearchable() bool {
+	return strings.Contains(s.DataType, "text") || strings.Contains(s.DataType, "app")
+}
+
+func (s *Row) DbEntryContains(db db.GoclipDB, text string) bool {
+	if !s.IsSearchable() {
+		return false
+	}
+	if strings.Contains(s.DataType, "text") {
+		entry, err := db.GetEntry(s.Id)
+		if err != nil {
+			return false
+		}
+		return strings.Contains(strings.ToLower(string(entry.Data)), strings.ToLower(text))
+	} else if strings.Contains(s.DataType, "app") {
+		return strings.Contains(s.Id, text)
+	}
+	return false
 }
 
 func ImageFromBytes(data []byte) *gtk.Image {
 	loader, err := gdk.PixbufLoaderNew()
 	if err != nil {
-		log.Error("Error loading Pixbuf", err.Error())
+		log.Error("Error loading Pixbuf", err)
 		return nil
 	}
 	pixbuf, err := loader.WriteAndReturnPixbuf(data)
 	if err != nil {
-		log.Error("Error writing Pixbuf", err.Error())
+		log.Error("Error writing Pixbuf", err)
 		return nil
 	}
 	if pixbuf.GetHeight() > imgMaxSize || pixbuf.GetWidth() > imgMaxSize {
@@ -52,22 +78,22 @@ func ImageFromBytes(data []byte) *gtk.Image {
 		}
 		pixbuf, err = pixbuf.ScaleSimple(newWidth, newHeight, gdk.INTERP_HYPER)
 		if err != nil {
-			log.Error("Error scaling image: ", err.Error())
+			log.Error("Error scaling image: ", err)
 			return nil
 		}
 	}
 	image, err := gtk.ImageNewFromPixbuf(pixbuf)
 	if err != nil {
-		log.Error("Error loading image: ", err.Error())
+		log.Error("Error loading image: ", err)
 		return nil
 	}
 	return image
 }
 
 type GoclipLauncherGtk struct {
-	settings *db.Settings
-	db       db.GoclipDB
-	clip     *clipboard.GoclipBoard
+	db    db.GoclipDB
+	clip  *clipboard.GoclipBoard
+	lType LauncherType
 
 	app        *gtk.Application
 	contentWin *gtk.ApplicationWindow
@@ -75,20 +101,22 @@ type GoclipLauncherGtk struct {
 	searchBox  *gtk.Entry
 }
 
-func New(myDb db.GoclipDB, myClip *clipboard.GoclipBoard) *GoclipLauncherGtk {
-	settings, err := myDb.GetSettings()
-	if err != nil {
-		log.Warning("Warning: Cannot load settings, using default.")
-		settings = db.DefaultSettings()
-	}
+func NewClipboardLauncher(myDb db.GoclipDB, myClip *clipboard.GoclipBoard) *GoclipLauncherGtk {
 	return &GoclipLauncherGtk{
-		db:       myDb,
-		clip:     myClip,
-		settings: settings,
+		db:    myDb,
+		clip:  myClip,
+		lType: LauncherTypeClipboard,
 	}
 }
 
-func (s *GoclipLauncherGtk) Start() {
+func NewAppsLauncher(myDb db.GoclipDB) *GoclipLauncherGtk {
+	return &GoclipLauncherGtk{
+		db:    myDb,
+		lType: LauncherTypeApps,
+	}
+}
+
+func (s *GoclipLauncherGtk) Run() {
 	var err error
 	log.Info("Starting App")
 	s.app, err = gtk.ApplicationNew(common.AppId, glib.APPLICATION_FLAGS_NONE)
@@ -107,25 +135,16 @@ func (s *GoclipLauncherGtk) Quit() {
 func (s *GoclipLauncherGtk) onSearching() {
 	text, err := s.searchBox.GetText()
 	if err != nil {
-		log.Error("Error getting text from Entry: ", err.Error())
+		log.Error("Error getting text from ClipboardEntry: ", err)
 		return
 	}
 	for _, row := range s.rows {
 		if text == "" {
 			row.Box.Show()
-		} else if !strings.Contains(row.Mime, "text") {
-			row.Box.Hide()
+		} else if row.DbEntryContains(s.db, text) {
+			row.Box.Show()
 		} else {
-			entry, err := s.db.GetEntry(row.Md5)
-			if err != nil {
-				continue
-			}
-			entryText := strings.ToLower(string(entry.Data))
-			if !strings.Contains(entryText, strings.ToLower(text)) {
-				row.Box.Hide()
-			} else {
-				row.Box.Show()
-			}
+			row.Box.Hide()
 		}
 	}
 }
@@ -133,7 +152,7 @@ func (s *GoclipLauncherGtk) onSearching() {
 func (s *GoclipLauncherGtk) drawSearchBox(layout *gtk.Box) {
 	row, err := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 10)
 	if err != nil {
-		log.Fatal("Error drawing Entry: ", err.Error())
+		log.Fatal("Error drawing ClipboardEntry: ", err)
 	}
 	label, err := gtk.LabelNew("Search:")
 	row.Add(label)
@@ -147,10 +166,10 @@ func (s *GoclipLauncherGtk) drawSearchBox(layout *gtk.Box) {
 	layout.Add(row)
 }
 
-func (s *GoclipLauncherGtk) drawEntry(layout *gtk.Box, entry *db.Entry) {
+func (s *GoclipLauncherGtk) drawEntry(layout *gtk.Box, entry *db.ClipboardEntry) {
 	row, err := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 10)
 	if err != nil {
-		log.Fatal("Error creating box: ", err.Error())
+		log.Fatal("Error creating box: ", err)
 	}
 	tsLabel, err := gtk.LabelNew(common.TimeToString(entry.Timestamp))
 	row.Add(tsLabel)
@@ -186,7 +205,7 @@ func (s *GoclipLauncherGtk) drawEntry(layout *gtk.Box, entry *db.Entry) {
 	delButton.Connect("clicked", func() {
 		s.db.DeleteEntry(md5)
 		for _, row := range s.rows {
-			if row.Md5 == md5 {
+			if row.Id == md5 {
 				row.Box.Destroy()
 			}
 		}
@@ -195,9 +214,37 @@ func (s *GoclipLauncherGtk) drawEntry(layout *gtk.Box, entry *db.Entry) {
 
 	layout.Add(row)
 	s.rows = append(s.rows, &Row{
-		Box:  row,
-		Md5:  entry.Md5,
-		Mime: entry.Mime,
+		Box:      row,
+		Id:       entry.Md5,
+		DataType: entry.Mime,
+	})
+}
+
+func (s *GoclipLauncherGtk) drawApp(layout *gtk.Box, entry *db.AppEntry) {
+	row, err := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 10)
+	if err != nil {
+		log.Fatal("Error creating box: ", err)
+	}
+	tsLabel, err := gtk.LabelNew(common.TimeToString(entry.AccessTime))
+	row.Add(tsLabel)
+
+	entryButton, err := gtk.ButtonNew()
+	entryButton.SetLabel(entry.Cmd)
+	entryButton.SetHExpand(true)
+	entryButton.Connect("clicked", func() {
+		cmd := exec.Command("nohup", entry.Cmd)
+		err := cmd.Start()
+		if err != nil {
+			log.Error("Command error: ", err)
+		}
+	})
+	row.Add(entryButton)
+
+	layout.Add(row)
+	s.rows = append(s.rows, &Row{
+		Box:      row,
+		Id:       entry.Cmd,
+		DataType: "app",
 	})
 }
 
@@ -205,7 +252,7 @@ func (s *GoclipLauncherGtk) ShowEntries() {
 	var err error
 	s.contentWin, err = gtk.ApplicationWindowNew(s.app)
 	if err != nil {
-		log.Fatal("Error creating content Window: ", err.Error())
+		log.Fatal("Error creating content Window: ", err)
 	}
 
 	topBox, err := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 10)
@@ -214,8 +261,14 @@ func (s *GoclipLauncherGtk) ShowEntries() {
 
 	contentBox, err := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 10)
 	s.rows = nil
-	for _, entry := range s.db.GetEntries() {
-		s.drawEntry(contentBox, entry)
+	if s.lType == LauncherTypeClipboard {
+		for _, entry := range s.db.GetEntries() {
+			s.drawEntry(contentBox, entry)
+		}
+	} else {
+		for _, entry := range s.db.GetApps() {
+			s.drawApp(contentBox, entry)
+		}
 	}
 
 	contentScroll, err := gtk.ScrolledWindowNew(nil, nil)

@@ -4,6 +4,7 @@ go 1.17
 
 require (
 	github.com/asdine/storm/v3 v3.2.1
+	github.com/djherbis/atime v1.1.0
 	github.com/getlantern/systray v1.1.0
 	github.com/gotk3/gotk3 v0.6.1
 	github.com/robotn/gohook v0.40.0

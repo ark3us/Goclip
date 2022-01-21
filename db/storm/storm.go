@@ -4,40 +4,73 @@ import (
 	"Goclip/common/log"
 	"Goclip/db"
 	"github.com/asdine/storm/v3"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"strings"
+	"syscall"
+	"time"
 )
+
+func aTime(name string) (atime time.Time) {
+	fi, err := os.Stat(name)
+	if err != nil {
+		return
+	}
+	stat := fi.Sys().(*syscall.Stat_t)
+	atime = time.Unix(stat.Atim.Sec, stat.Atim.Nsec)
+	return
+}
 
 type GoclipDBStorm struct {
 	dbFile string
+	db     *storm.DB
 }
 
 func New(dbFile string) *GoclipDBStorm {
 	return &GoclipDBStorm{dbFile: dbFile}
 }
 
-func (s *GoclipDBStorm) cleanup(myDb *storm.DB) error {
-	settings, err := s.getSettings(myDb)
+func (s *GoclipDBStorm) openDb() error {
+	var err error
+	s.db, err = storm.Open(s.dbFile)
+	if err != nil {
+		log.Error("Error opening database: ", err)
+		return err
+	}
+	return nil
+}
+
+func (s *GoclipDBStorm) closeDb() {
+	if err := s.db.Close(); err != nil {
+		log.Error("Error closing database: ", err)
+	}
+}
+
+func (s *GoclipDBStorm) cleanup() error {
+	settings, err := s.getSettings()
 	if err != nil {
 		settings = db.DefaultSettings()
 	}
 
-	var entry db.Entry
-	tot, err := myDb.Count(&entry)
+	var entry db.ClipboardEntry
+	tot, err := s.db.Count(&entry)
 	if err != nil {
-		log.Error("Error getting db count: ", err.Error())
+		log.Error("Error getting db count: ", err)
 		return err
 	}
 	if tot > settings.MaxEntries {
 		n := tot - settings.MaxEntries
 		log.Info("Deleting ", n, " entries.")
-		var toDel []*db.Entry
-		if err := myDb.AllByIndex("Timestamp", &toDel, storm.Limit(n)); err != nil {
-			log.Error("Error getting db entries:", err.Error())
+		var toDel []*db.ClipboardEntry
+		if err := s.db.AllByIndex("Timestamp", &toDel, storm.Limit(n)); err != nil {
+			log.Error("Error getting db entries:", err)
 			return err
 		}
 		for _, entry := range toDel {
 			// log.Println("Deleting:", entry.Data)
-			if err := myDb.DeleteStruct(entry); err != nil {
-				log.Error("Error deleting db entry: ", err.Error())
+			if err := s.db.DeleteStruct(entry); err != nil {
+				log.Error("Error deleting db entry: ", err)
 			}
 		}
 		log.Info("Db cleanup complete.")
@@ -45,116 +78,163 @@ func (s *GoclipDBStorm) cleanup(myDb *storm.DB) error {
 	return nil
 }
 
-func (s *GoclipDBStorm) AddEntry(entry *db.Entry) error {
-	myDb, err := storm.Open(s.dbFile)
-	if err != nil {
-		log.Error("Error opening database: ", err)
+func (s *GoclipDBStorm) AddEntry(entry *db.ClipboardEntry) error {
+	if err := s.openDb(); err != nil {
 		return err
 	}
-	defer myDb.Close()
+	defer s.closeDb()
 
-	if err := myDb.Save(entry); err != nil {
-		log.Error("Error adding db entry: ", err.Error())
+	if err := s.db.Save(entry); err != nil {
+		log.Error("Error adding db entry: ", err)
 		return err
 	}
-	return s.cleanup(myDb)
+	return s.cleanup()
 }
 
 func (s *GoclipDBStorm) DeleteEntry(md5 string) error {
-	myDb, err := storm.Open(s.dbFile)
-	if err != nil {
-		log.Error("Error opening database: ", err.Error())
+	if err := s.openDb(); err != nil {
 		return err
 	}
-	defer myDb.Close()
+	defer s.closeDb()
 
-	if err := myDb.DeleteStruct(&db.Entry{Md5: md5}); err != nil {
-		log.Error("Error deleting db entry: ", err.Error())
+	if err := s.db.DeleteStruct(&db.ClipboardEntry{Md5: md5}); err != nil {
+		log.Error("Error deleting db entry: ", err)
 		return err
 	}
 	log.Info("Db entry deleted:", md5)
 	return nil
 }
 
-func (s *GoclipDBStorm) GetEntry(md5 string) (*db.Entry, error) {
-	myDb, err := storm.Open(s.dbFile)
-	if err != nil {
-		log.Error("Error opening database: ", err.Error())
+func (s *GoclipDBStorm) GetEntry(md5 string) (*db.ClipboardEntry, error) {
+	if err := s.openDb(); err != nil {
 		return nil, err
 	}
-	defer myDb.Close()
+	defer s.closeDb()
 
-	entry := db.Entry{}
-	if err := myDb.One("Md5", md5, &entry); err != nil {
-		log.Error("Error getting db entry:", err.Error())
+	entry := db.ClipboardEntry{}
+	if err := s.db.One("Md5", md5, &entry); err != nil {
+		log.Error("Error getting db entry:", err)
 		return nil, err
 	}
 	return &entry, nil
 }
 
-func (s *GoclipDBStorm) GetEntries() []*db.Entry {
-	var entries []*db.Entry
-	myDb, err := storm.Open(s.dbFile)
-	if err != nil {
-		log.Error("Error opening database: ", err.Error())
-		return entries
+func (s *GoclipDBStorm) GetEntries() []*db.ClipboardEntry {
+	if err := s.openDb(); err != nil {
+		return nil
 	}
-	defer myDb.Close()
+	defer s.closeDb()
 
-	if err := myDb.AllByIndex("Timestamp", &entries, storm.Reverse()); err != nil {
-		log.Error("Error getting db entries: ", err.Error())
+	var entries []*db.ClipboardEntry
+	if err := s.db.AllByIndex("Timestamp", &entries, storm.Reverse()); err != nil {
+		log.Error("Error getting db entries: ", err)
 	}
 	return entries
 }
 
 func (s *GoclipDBStorm) SaveSettings(settings *db.Settings) error {
-	myDb, err := storm.Open(s.dbFile)
-	if err != nil {
-		log.Error("Error opening database: ", err.Error())
+	if err := s.openDb(); err != nil {
 		return err
 	}
-	defer myDb.Close()
+	defer s.closeDb()
 
-	if err := myDb.Set("settings", 0, settings); err != nil {
-		log.Error("Error saving settings to db: ", err.Error())
+	if err := s.db.Set("settings", 0, settings); err != nil {
+		log.Error("Error saving settings to db: ", err)
 		return err
 	}
-	settings = settings
 	return nil
 }
 
 func (s *GoclipDBStorm) GetSettings() (*db.Settings, error) {
-	myDb, err := storm.Open(s.dbFile)
-	if err != nil {
-		log.Error("Error opening database: ", err.Error())
+	if err := s.openDb(); err != nil {
 		return nil, err
 	}
-	defer myDb.Close()
-	return s.getSettings(myDb)
+	defer s.closeDb()
+	return s.getSettings()
 }
 
-func (s *GoclipDBStorm) getSettings(myDb *storm.DB) (*db.Settings, error) {
+func (s *GoclipDBStorm) getSettings() (*db.Settings, error) {
 	settings := db.Settings{}
-	if err := myDb.Get("settings", 0, &settings); err != nil {
-		log.Error("Error getting settings from db: ", err.Error())
+	if err := s.db.Get("settings", 0, &settings); err != nil {
+		log.Error("Error getting settings from db: ", err)
 		return nil, err
 	}
 	return &settings, nil
 }
 
 func (s *GoclipDBStorm) Drop() error {
-	myDb, err := storm.Open(s.dbFile)
-	if err != nil {
-		log.Error("Error opening database: ", err.Error())
+	if err := s.openDb(); err != nil {
 		return err
 	}
-	defer myDb.Close()
+	defer s.closeDb()
 
-	if err := myDb.Drop(&db.Entry{}); err != nil {
+	if err := s.db.Drop(&db.ClipboardEntry{}); err != nil {
 		log.Error("Error dropping database: ", err)
 	}
-	if err := myDb.Drop("settings"); err != nil {
+	if err := s.db.Drop("settings"); err != nil {
 		log.Error("Error dropping database: ", err)
 	}
 	return nil
+}
+
+func (s *GoclipDBStorm) RefreshApps() error {
+	log.Info("Refreshing apps...")
+	if err := s.openDb(); err != nil {
+		return err
+	}
+	defer s.closeDb()
+
+	pathEnv := os.Getenv("PATH")
+	paths := strings.Split(pathEnv, ":")
+	for _, path := range paths {
+		files, err := ioutil.ReadDir(path)
+		if err != nil {
+			log.Warning("Cannot read dir content: ", err)
+			continue
+		}
+		for _, finfo := range files {
+			// Exec permission for someone
+			if finfo.Mode().Perm()|0111 != 0 {
+				ffile := filepath.Join(path, finfo.Name())
+				entry := &db.AppEntry{
+					Cmd:        ffile,
+					AccessTime: aTime(ffile),
+				}
+				if err := s.db.Save(entry); err != nil {
+					log.Error("Cannot save entry, aborting: ", err)
+					return err
+				}
+			}
+		}
+	}
+	log.Info("Refresh complete.")
+	return nil
+}
+
+func (s *GoclipDBStorm) GetApps() []*db.AppEntry {
+	if err := s.openDb(); err != nil {
+		return nil
+	}
+	defer s.closeDb()
+	log.Info("Getting all apps...")
+	var entries []*db.AppEntry
+	if err := s.db.AllByIndex("AccessTime", &entries, storm.Reverse()); err != nil {
+		log.Error("Error getting db entries: ", err)
+	}
+	log.Info("Got apps.")
+	return entries
+}
+
+func (s *GoclipDBStorm) GetApp(cmd string) (*db.AppEntry, error) {
+	if err := s.openDb(); err != nil {
+		return nil, err
+	}
+	defer s.closeDb()
+
+	entry := db.AppEntry{}
+	if err := s.db.One("Cmd", cmd, &entry); err != nil {
+		log.Error("Error getting db entry:", err)
+		return nil, err
+	}
+	return &entry, nil
 }

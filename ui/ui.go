@@ -2,10 +2,10 @@ package ui
 
 type GoclipLauncher interface {
 	ShowEntries()
-	Start()
+	Run()
 }
 
 type GoclipSettings interface {
 	ShowSettings()
-	Start()
+	Run()
 }

@@ -19,7 +19,7 @@ func New(goclipDB db.GoclipDB) *GoclipSettingsGtk {
 	return &GoclipSettingsGtk{db: goclipDB}
 }
 
-func (s *GoclipSettingsGtk) Start() {
+func (s *GoclipSettingsGtk) Run() {
 	systray.Run(func() {
 		data, _ := ioutil.ReadFile("icon.png")
 		systray.SetIcon(data)
@@ -69,13 +69,13 @@ func (s *GoclipSettingsGtk) ShowSettings() {
 	label, err = gtk.LabelNew("Shortcut - mod key:")
 	layout.Add(label)
 	inputModKey, err := gtk.EntryNew()
-	inputModKey.SetText(settings.HookModKey)
+	inputModKey.SetText(settings.ClipboardModKey)
 	layout.Add(inputModKey)
 
 	label, err = gtk.LabelNew("Shortcut - key:")
 	layout.Add(label)
 	inputKey, err := gtk.EntryNew()
-	inputKey.SetText(settings.HookKey)
+	inputKey.SetText(settings.ClipboardKey)
 	layout.Add(inputKey)
 
 	save, err := gtk.ButtonNew()
@@ -84,16 +84,16 @@ func (s *GoclipSettingsGtk) ShowSettings() {
 		maxEntries, err := inputMaxEntries.GetText()
 		n, err := strconv.Atoi(maxEntries)
 		if err != nil {
-			log.Error("Invalid Entry value: ", err.Error())
+			log.Error("Invalid ClipboardEntry value: ", err.Error())
 			message.SetText("Invalid value")
 			return
 		}
 		modKey, err := inputModKey.GetText()
 		hookKey, err := inputKey.GetText()
 		settings.MaxEntries = n
-		if modKey != settings.HookModKey || hookKey != settings.HookKey {
-			settings.HookModKey = modKey
-			settings.HookKey = hookKey
+		if modKey != settings.ClipboardModKey || hookKey != settings.ClipboardKey {
+			settings.ClipboardModKey = modKey
+			settings.ClipboardKey = hookKey
 			message.SetLabel("Application restart required")
 		}
 		s.db.SaveSettings(settings)
