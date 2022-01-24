@@ -15,6 +15,7 @@ import (
 	"github.com/gotk3/gotk3/gtk"
 	"io/ioutil"
 	"os/exec"
+	"runtime"
 	"strings"
 	"unsafe"
 )
@@ -111,7 +112,7 @@ type GoclipLauncherGtk struct {
 	title string
 
 	app        *gtk.Application
-	contentWin *gtk.ApplicationWindow
+	contentWin *gtk.Window
 	rows       []*Row
 	searchBox  *gtk.Entry
 	contentBox *gtk.Box
@@ -134,7 +135,7 @@ func NewAppsLauncher(myDb db.GoclipDB) *GoclipLauncherGtk {
 	}
 }
 
-func (s *GoclipLauncherGtk) Run() {
+func (s *GoclipLauncherGtk) _Run() {
 	var err error
 	log.Info("Starting App")
 	s.app, err = gtk.ApplicationNew(goclip.AppId, glib.APPLICATION_FLAGS_NONE)
@@ -284,7 +285,8 @@ func (s *GoclipLauncherGtk) drawApp(entry *db.AppEntry) {
 
 func (s *GoclipLauncherGtk) ShowEntries() {
 	var err error
-	s.contentWin, err = gtk.ApplicationWindowNew(s.app)
+	runtime.LockOSThread()
+	s.contentWin, err = gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
 	if err != nil {
 		log.Fatal("Error creating content Window: ", err)
 	}
@@ -338,7 +340,7 @@ func (s *GoclipLauncherGtk) onFocusOut() {
 	s.contentWin.Destroy()
 }
 
-func (s *GoclipLauncherGtk) onKeyPress(widget *gtk.ApplicationWindow, event *gdk.Event) {
+func (s *GoclipLauncherGtk) onKeyPress(widget *gtk.Window, event *gdk.Event) {
 	keyEvent := gdk.EventKeyNewFromEvent(event)
 	if keyEvent.KeyVal() == gdk.KEY_Escape {
 		s.contentWin.Destroy()

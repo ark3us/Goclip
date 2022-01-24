@@ -4,6 +4,7 @@ import (
 	"Goclip/db"
 	"Goclip/goclip"
 	"Goclip/goclip/log"
+	"github.com/dawidd6/go-appindicator"
 	"github.com/getlantern/systray"
 	"github.com/gotk3/gotk3/gtk"
 	"io/ioutil"
@@ -19,7 +20,7 @@ func New(goclipDB db.GoclipDB) *GoclipSettingsGtk {
 	return &GoclipSettingsGtk{db: goclipDB}
 }
 
-func (s *GoclipSettingsGtk) Run() {
+func (s *GoclipSettingsGtk) _Run() {
 	systray.Run(func() {
 		data, _ := ioutil.ReadFile("icon.png")
 		systray.SetIcon(data)
@@ -45,6 +46,27 @@ func (s *GoclipSettingsGtk) Run() {
 		}()
 	}, func() {
 	})
+}
+
+func (s *GoclipSettingsGtk) Run() {
+	menu, err := gtk.MenuNew()
+	if err != nil {
+		log.Error("Error creating menu:", err)
+		return
+	}
+	item, err := gtk.MenuItemNewWithLabel("Settings")
+	menu.Add(item)
+	item, err = gtk.MenuItemNewWithLabel("Reload apps")
+	menu.Add(item)
+	item, err = gtk.MenuItemNewWithLabel("Quit")
+	menu.Add(item)
+
+	indicator := appindicator.New(goclip.AppId, "icon.png", appindicator.CategoryApplicationStatus)
+	indicator.SetTitle(goclip.AppName)
+	indicator.SetLabel(goclip.AppName, goclip.AppName)
+	indicator.SetStatus(appindicator.StatusActive)
+	indicator.SetMenu(menu)
+	menu.ShowAll()
 }
 
 func (s *GoclipSettingsGtk) ShowSettings() {
