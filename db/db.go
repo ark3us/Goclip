@@ -40,10 +40,10 @@ type Settings struct {
 func DefaultSettings() *Settings {
 	return &Settings{
 		MaxEntries:      100,
-		ClipboardModKey: "alt",
-		ClipboardKey:    "z",
-		AppsModKey:      "alt",
-		AppsKey:         "x",
+		ClipboardModKey: "win",
+		ClipboardKey:    "v",
+		AppsModKey:      "win",
+		AppsKey:         "c",
 	}
 }
 
@@ -54,6 +54,7 @@ type GoclipDB interface {
 	GetEntries() []*ClipboardEntry
 
 	RefreshApps() error
+	SetRefreshCallback(func())
 	GetApps() []*AppEntry
 	GetApp(cmd string) (*AppEntry, error)
 	UpdateAppAccess(entry *AppEntry)

@@ -5,9 +5,8 @@ import (
 	"Goclip/goclip"
 	"Goclip/goclip/log"
 	"github.com/dawidd6/go-appindicator"
-	"github.com/getlantern/systray"
+	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
-	"io/ioutil"
 	"strconv"
 )
 
@@ -20,56 +19,46 @@ func New(goclipDB db.GoclipDB) *GoclipSettingsGtk {
 	return &GoclipSettingsGtk{db: goclipDB}
 }
 
-func (s *GoclipSettingsGtk) _Run() {
-	systray.Run(func() {
-		data, _ := ioutil.ReadFile("icon.png")
-		systray.SetIcon(data)
-		systray.SetTitle(goclip.AppName)
-		mSettings := systray.AddMenuItem("Settings", "Application settings")
-		go func() {
-			for {
-				<-mSettings.ClickedCh
-				s.ShowSettings()
-			}
-		}()
-		mReload := systray.AddMenuItem("Reload apps", "Reload apps cache")
-		go func() {
-			for {
-				<-mReload.ClickedCh
-				go s.db.RefreshApps()
-			}
-		}()
-		mQuit := systray.AddMenuItem("Quit", "Quit app")
-		go func() {
-			<-mQuit.ClickedCh
-			systray.Quit()
-		}()
-	}, func() {
-	})
-}
-
 func (s *GoclipSettingsGtk) Run() {
+	gtk.Init(nil)
 	menu, err := gtk.MenuNew()
 	if err != nil {
 		log.Error("Error creating menu:", err)
 		return
 	}
 	item, err := gtk.MenuItemNewWithLabel("Settings")
-	menu.Add(item)
-	item, err = gtk.MenuItemNewWithLabel("Reload apps")
-	menu.Add(item)
-	item, err = gtk.MenuItemNewWithLabel("Quit")
+	item.Connect("activate", func() {
+		s.ShowSettings()
+	})
 	menu.Add(item)
 
-	indicator := appindicator.New(goclip.AppId, "icon.png", appindicator.CategoryApplicationStatus)
+	item, err = gtk.MenuItemNewWithLabel("Reload apps")
+	item.Connect("activate", func() {
+		go s.db.RefreshApps()
+	})
+	menu.Add(item)
+
+	item, err = gtk.MenuItemNewWithLabel("Quit")
+	item.Connect("activate", func() {
+		gtk.MainQuit()
+	})
+	menu.Add(item)
+
+	indicator := appindicator.New(goclip.AppId, "icon", appindicator.CategoryApplicationStatus)
+	indicator.SetIconThemePath(".")
 	indicator.SetTitle(goclip.AppName)
 	indicator.SetLabel(goclip.AppName, goclip.AppName)
 	indicator.SetStatus(appindicator.StatusActive)
 	indicator.SetMenu(menu)
 	menu.ShowAll()
+	gtk.Main()
 }
 
 func (s *GoclipSettingsGtk) ShowSettings() {
+	glib.IdleAdd(s.showSettings)
+}
+
+func (s *GoclipSettingsGtk) showSettings() {
 	var err error
 	if s.settingsWin != nil {
 		s.settingsWin.Destroy()

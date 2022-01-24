@@ -15,7 +15,6 @@ import (
 	"github.com/gotk3/gotk3/gtk"
 	"io/ioutil"
 	"os/exec"
-	"runtime"
 	"strings"
 	"unsafe"
 )
@@ -251,8 +250,6 @@ func (s *GoclipLauncherGtk) drawApp(entry *db.AppEntry) {
 	img, _ := gtk.ImageNew()
 	if image != nil {
 		img.SetFromPixbuf(image.GetPixbuf())
-	} else {
-		// img.SetFromPixbuf(ImageFromFile("default.png", iconMaxSize).GetPixbuf())
 	}
 	img.SetSizeRequest(iconMaxSize, iconMaxSize)
 	row.Add(img)
@@ -261,7 +258,8 @@ func (s *GoclipLauncherGtk) drawApp(entry *db.AppEntry) {
 	entryButton.SetLabel(entry.Name)
 	entryButton.SetHExpand(true)
 	entryButton.Connect("clicked", func() {
-		log.Info("Exec: ", entry.Exec)
+		s.contentWin.Destroy()
+		log.Info("Entry: ", entry.File, " Exec: ", entry.Exec)
 		args := strings.Fields(entry.Exec)
 		if entry.Terminal {
 			args = append([]string{"x-terminal-emulator", "-e"}, args...)
@@ -284,8 +282,36 @@ func (s *GoclipLauncherGtk) drawApp(entry *db.AppEntry) {
 }
 
 func (s *GoclipLauncherGtk) ShowEntries() {
+	glib.IdleAdd(s.showEntries)
+}
+
+func (s *GoclipLauncherGtk) drawEntries() {
+	if s.lType == LauncherTypeClipboard {
+		s.contentBox, _ = gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 10)
+		for _, entry := range s.db.GetEntries() {
+			s.drawEntry(entry)
+		}
+	} else {
+		if s.contentBox == nil {
+			s.RedrawApps()
+		}
+	}
+}
+
+func (s *GoclipLauncherGtk) RedrawApps() {
+
+	log.Info("Redrawing apps")
+	s.contentBox, _ = gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 10)
+	for _, entry := range s.db.GetApps() {
+		s.drawApp(entry)
+	}
+}
+
+func (s *GoclipLauncherGtk) showEntries() {
 	var err error
-	runtime.LockOSThread()
+	if s.contentWin != nil {
+		s.contentWin.Destroy()
+	}
 	s.contentWin, err = gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
 	if err != nil {
 		log.Fatal("Error creating content Window: ", err)
@@ -295,18 +321,7 @@ func (s *GoclipLauncherGtk) ShowEntries() {
 	s.drawSearchBox(topBox)
 	topBox.SetVExpand(false)
 
-	s.contentBox, err = gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 10)
-	s.rows = nil
-	if s.lType == LauncherTypeClipboard {
-		for _, entry := range s.db.GetEntries() {
-			s.drawEntry(entry)
-		}
-	} else {
-		for _, entry := range s.db.GetApps() {
-			s.drawApp(entry)
-		}
-	}
-
+	s.drawEntries()
 	contentScroll, err := gtk.ScrolledWindowNew(nil, nil)
 	contentScroll.Add(s.contentBox)
 	contentScroll.SetPolicy(gtk.POLICY_NEVER, gtk.POLICY_AUTOMATIC)

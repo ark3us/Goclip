@@ -13,8 +13,10 @@ import (
 )
 
 type GoclipDBStorm struct {
-	dbFile string
-	db     *storm.DB
+	dbFile      string
+	db          *storm.DB
+	appsChanged bool
+	refreshCb   func()
 }
 
 func New(dbFile string) *GoclipDBStorm {
@@ -205,6 +207,10 @@ func (s *GoclipDBStorm) DropAll() error {
 	return nil
 }
 
+func (s *GoclipDBStorm) SetRefreshCallback(callback func()) {
+	s.refreshCb = callback
+}
+
 func (s *GoclipDBStorm) RefreshApps() error {
 	if err := s.DropApps(); err != nil {
 		return err
@@ -244,6 +250,10 @@ func (s *GoclipDBStorm) RefreshApps() error {
 		}
 	}
 	log.Info("Refresh complete, added apps: ", len(allEntries))
+	s.appsChanged = true
+	if s.refreshCb != nil {
+		go s.refreshCb()
+	}
 	return nil
 }
 
@@ -276,12 +286,15 @@ func (s *GoclipDBStorm) GetApp(cmd string) (*db.AppEntry, error) {
 }
 
 func (s *GoclipDBStorm) UpdateAppAccess(entry *db.AppEntry) {
+	entry.AccessTime = time.Now()
 	if err := s.openDb(); err != nil {
 		return
 	}
 	defer s.closeDb()
-	entry.AccessTime = time.Now()
 	if err := s.db.Update(entry); err != nil {
 		log.Warning("Error updating entry: ", err)
+	}
+	if s.refreshCb != nil {
+		go s.refreshCb()
 	}
 }
