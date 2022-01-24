@@ -8,6 +8,7 @@ import (
 	"Goclip/ui"
 	"Goclip/ui/gtk/launcher"
 	"Goclip/ui/gtk/settings"
+	"github.com/gotk3/gotk3/gtk"
 	hook "github.com/robotn/gohook"
 	"os"
 	"os/exec"
@@ -23,15 +24,19 @@ const (
 )
 
 type GoclipListener struct {
-	app      string
-	db       db.GoclipDB
-	settings ui.GoclipSettings
+	app string
+	db  db.GoclipDB
+
+	clipLauncher ui.GoclipLauncher
+	appLauncher  ui.GoclipLauncher
 }
 
-func NewGoclipListener(goclipApp string, goclipDB db.GoclipDB) *GoclipListener {
+func NewGoclipListener(goclipApp string, goclipDB db.GoclipDB, clipLauncher ui.GoclipLauncher, appLauncher ui.GoclipLauncher) *GoclipListener {
 	return &GoclipListener{
-		app: goclipApp,
-		db:  goclipDB,
+		app:          goclipApp,
+		db:           goclipDB,
+		clipLauncher: clipLauncher,
+		appLauncher:  appLauncher,
 	}
 }
 
@@ -55,16 +60,20 @@ func (s *GoclipListener) startHotkeyListener() {
 		sets = db.DefaultSettings()
 	}
 	hook.Register(hook.KeyDown, []string{sets.ClipboardKey, sets.ClipboardModKey}, func(event hook.Event) {
-		go s.startLauncher(argClipboard)
+		// go s.startLauncher(argClipboard)
+		s.clipLauncher.ShowEntries()
+
 	})
 	hook.Register(hook.KeyDown, []string{sets.AppsKey, sets.AppsModKey}, func(event hook.Event) {
-		go s.startLauncher(argApps)
+		// go s.startLauncher(argApps)
+		s.appLauncher.ShowEntries()
 	})
 	start := hook.Start()
 	<-hook.Process(start)
 }
 
 func main() {
+	gtk.Init(nil)
 	// log.Debug = true
 	if strings.HasPrefix(dbFile, "~/") {
 		dirname, _ := os.UserHomeDir()
@@ -72,25 +81,18 @@ func main() {
 	}
 	goclipDB := storm.New(dbFile)
 	goclipCb := clipboard.New(goclipDB)
-	if len(os.Args) > 1 && os.Args[1] == argClipboard {
-		log.Info("Staring clipboard launcher")
-		goclipApp := launcher.NewClipboardLauncher(goclipDB, goclipCb)
-		goclipApp.Run()
-	} else if len(os.Args) > 1 && os.Args[1] == argApps {
-		log.Info("Staring app launcher")
-		goclipApp := launcher.NewAppsLauncher(goclipDB)
-		goclipApp.Run()
-	} else {
-		log.Info("Starting listener")
-		ex, err := os.Executable()
-		if err != nil {
-			log.Fatal("Error getting executable:", err)
-		}
-		goclipSets := settings.New(goclipDB)
-		goclipListener := NewGoclipListener(ex, goclipDB)
-		goclipCb.Start()
-		goclipListener.Start()
-		goclipDB.RefreshApps()
-		goclipSets.Run()
+	clipLauncher := launcher.NewClipboardLauncher(goclipDB, goclipCb)
+	appLauncher := launcher.NewAppsLauncher(goclipDB)
+	log.Info("Starting listener")
+	ex, err := os.Executable()
+	if err != nil {
+		log.Fatal("Error getting executable:", err)
 	}
+	goclipSets := settings.New(goclipDB)
+	goclipListener := NewGoclipListener(ex, goclipDB, clipLauncher, appLauncher)
+	goclipCb.Start()
+	goclipListener.Start()
+	go goclipDB.RefreshApps()
+	goclipSets.Run()
+	gtk.Main()
 }
