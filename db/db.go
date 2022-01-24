@@ -61,5 +61,8 @@ type GoclipDB interface {
 	GetSettings() (*Settings, error)
 	SaveSettings(settings *Settings) error
 
-	Drop() error
+	DropAll() error
+	DropSettings() error
+	DropClipboard() error
+	DropApps() error
 }

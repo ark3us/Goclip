@@ -152,30 +152,68 @@ func (s *GoclipDBStorm) getSettings() (*db.Settings, error) {
 	return &settings, nil
 }
 
-func (s *GoclipDBStorm) Drop() error {
+func (s *GoclipDBStorm) DropSettings() error {
+	log.Info("Dropping settings...")
+	if err := s.openDb(); err != nil {
+		return err
+	}
+	defer s.closeDb()
+
+	if err := s.db.Drop("settings"); err != nil {
+		log.Error("Error dropping settings: ", err)
+	}
+	return nil
+}
+
+func (s *GoclipDBStorm) DropClipboard() error {
+	log.Info("Dropping clipboard...")
 	if err := s.openDb(); err != nil {
 		return err
 	}
 	defer s.closeDb()
 
 	if err := s.db.Drop(&db.ClipboardEntry{}); err != nil {
-		log.Error("Error dropping database: ", err)
-	}
-	if err := s.db.Drop("settings"); err != nil {
-		log.Error("Error dropping database: ", err)
+		log.Error("Error dropping clipboard: ", err)
 	}
 	return nil
 }
 
-func (s *GoclipDBStorm) RefreshApps() error {
-	log.Info("Refreshing apps...")
+func (s *GoclipDBStorm) DropApps() error {
+	log.Info("Dropping apps...")
 	if err := s.openDb(); err != nil {
 		return err
 	}
 	defer s.closeDb()
 
+	if err := s.db.Drop(&db.AppEntry{}); err != nil {
+		log.Error("Error dropping apps: ", err)
+	}
+	return nil
+}
+
+func (s *GoclipDBStorm) DropAll() error {
+	log.Info("Dropping everything...")
+	if err := s.DropClipboard(); err != nil {
+		return err
+	}
+	if err := s.DropApps(); err != nil {
+		return err
+	}
+	if err := s.DropSettings(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *GoclipDBStorm) RefreshApps() error {
+	if err := s.DropApps(); err != nil {
+		return err
+	}
+	log.Info("Refreshing apps...")
+
 	pathEnv := os.Getenv("XDG_DATA_DIRS")
 	paths := strings.Split(pathEnv, ":")
+	var allEntries []*db.AppEntry
 	for _, path := range paths {
 		path = filepath.Join(path, "applications")
 		files, err := ioutil.ReadDir(path)
@@ -190,18 +228,22 @@ func (s *GoclipDBStorm) RefreshApps() error {
 			if err != nil {
 				continue
 			}
-			for _, entry := range entries {
-				if err := s.db.Save(entry); err != nil {
-					log.Error("Cannot save entry, aborting: ", err)
-					return err
-				}
-			}
-			n++
+			allEntries = append(allEntries, entries...)
+			n += len(entries)
 		}
 		log.Info(path, ": ", n)
 	}
-	tot, _ := s.db.Count(&db.AppEntry{})
-	log.Info("Refresh complete, added apps: ", tot)
+	if err := s.openDb(); err != nil {
+		return err
+	}
+	defer s.closeDb()
+	for _, entry := range allEntries {
+		if err := s.db.Save(entry); err != nil {
+			log.Error("Cannot save entry, aborting: ", err)
+			return err
+		}
+	}
+	log.Info("Refresh complete, added apps: ", len(allEntries))
 	return nil
 }
 

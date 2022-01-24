@@ -247,11 +247,14 @@ func (s *GoclipLauncherGtk) drawApp(entry *db.AppEntry) {
 	row.Add(tsLabel)
 
 	image := ImageFromFile(entry.Icon, iconMaxSize)
+	img, _ := gtk.ImageNew()
 	if image != nil {
-		img, _ := gtk.ImageNew()
 		img.SetFromPixbuf(image.GetPixbuf())
-		row.Add(img)
+	} else {
+		// img.SetFromPixbuf(ImageFromFile("default.png", iconMaxSize).GetPixbuf())
 	}
+	img.SetSizeRequest(iconMaxSize, iconMaxSize)
+	row.Add(img)
 
 	entryButton, err := gtk.ButtonNew()
 	entryButton.SetLabel(entry.Name)

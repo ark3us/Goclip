@@ -86,11 +86,11 @@ func main() {
 		if err != nil {
 			log.Fatal("Error getting executable:", err)
 		}
-		goclipApp := settings.New(goclipDB)
+		goclipSets := settings.New(goclipDB)
 		goclipListener := NewGoclipListener(ex, goclipDB)
 		goclipCb.Start()
 		goclipListener.Start()
-		go goclipDB.RefreshApps()
-		goclipApp.Run()
+		goclipDB.RefreshApps()
+		goclipSets.Run()
 	}
 }

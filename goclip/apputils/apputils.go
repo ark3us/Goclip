@@ -52,29 +52,30 @@ func getDesktopFileValue(line string, prefix string) string {
 }
 
 func findIcon(name string) string {
+	if name == "" {
+		return name
+	}
 	if _, err := os.Stat(name); err == nil {
 		return name
 	}
 	pathEnv := os.Getenv("XDG_DATA_DIRS")
 	paths := strings.Split(pathEnv, ":")
-	out := "default.png"
+	out := ""
 	for _, root := range paths {
-		log.Info("Looking for icon ", name, " in ", root)
 		root = filepath.Join(root, "icons")
 		err := filepath.Walk(root, func(path string, info fs.FileInfo, err error) error {
+			// log.Info("Looking for icon ", name, " in ", path)
 			if err != nil {
 				return err
 			}
 			if info.Name() == name+".png" {
 				out = path
+				// log.Info("Found: ", path)
 				return io.EOF
 			}
 			return nil
 		})
 		if err == io.EOF {
-			err = nil
-		}
-		if out != "" {
 			break
 		}
 	}

@@ -37,7 +37,7 @@ sudo apt-get install gcc libgtk-3-dev libappindicator3-dev
 - Alt+z : open clipboard manager
 - Alt+x : open app launcher
 
-## Improvements
+# Improvements
 
 A LOT can be improved, this is just a proof-of-concept...
 

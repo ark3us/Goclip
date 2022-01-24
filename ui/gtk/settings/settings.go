@@ -150,7 +150,7 @@ func (s *GoclipSettingsGtk) ShowSettings() {
 	resetDb, err := gtk.ButtonNew()
 	resetDb.SetLabel("Reset Database")
 	resetDb.Connect("clicked", func() {
-		s.db.Drop()
+		s.db.DropAll()
 		message.SetLabel("Application restart required")
 	})
 	layout.Add(resetDb)
