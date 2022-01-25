@@ -212,11 +212,12 @@ func (s *GoclipDBStorm) SetRefreshCallback(callback func()) {
 }
 
 func (s *GoclipDBStorm) RefreshApps() error {
-	if err := s.DropApps(); err != nil {
-		return err
-	}
+	/*
+		if err := s.DropApps(); err != nil {
+			return err
+	*/
 	log.Info("Refreshing apps...")
-
+	parser := apputils.DesktopFileParser{}
 	pathEnv := os.Getenv("XDG_DATA_DIRS")
 	paths := strings.Split(pathEnv, ":")
 	var allEntries []*db.AppEntry
@@ -230,7 +231,7 @@ func (s *GoclipDBStorm) RefreshApps() error {
 		n := 0
 		for _, finfo := range files {
 			ffile := filepath.Join(path, finfo.Name())
-			entries, err := apputils.ParseDesktopFile(ffile)
+			entries, err := parser.ParseDesktopFile(ffile)
 			if err != nil {
 				continue
 			}
@@ -243,10 +244,14 @@ func (s *GoclipDBStorm) RefreshApps() error {
 		return err
 	}
 	defer s.closeDb()
+	appEntry := db.AppEntry{}
 	for _, entry := range allEntries {
-		if err := s.db.Save(entry); err != nil {
-			log.Error("Cannot save entry, aborting: ", err)
-			return err
+		if err := s.db.One("Exec", entry.Exec, &appEntry); err != nil {
+			log.Info("New:", entry.Exec, err)
+			if err := s.db.Save(entry); err != nil {
+				log.Error("Cannot save entry, aborting: ", err)
+				return err
+			}
 		}
 	}
 	log.Info("Refresh complete, added apps: ", len(allEntries))
