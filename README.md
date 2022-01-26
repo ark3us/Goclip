@@ -8,6 +8,7 @@ This application is just a proof-of-concept and might be highly unstable.
 
 - Clipboard text and image support (https://github.com/golang-design/clipboard)
 - App launcher
+- Shell commands with autocomplete
 - Data persistence (https://github.com/asdine/storm)
 - System shortcut (https://github.com/robotn/gohook)
 - Simple UI (https://github.com/gotk3/gotk3)
@@ -36,6 +37,7 @@ sudo apt-get install gcc libgtk-3-dev libappindicator3-dev
 
 - Win+V : open clipboard manager
 - Win+C : open app launcher
+- Win+x : open shell launcher
 
 # Improvements
 
