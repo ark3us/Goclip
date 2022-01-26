@@ -7,6 +7,8 @@ import (
 	"strings"
 )
 
+const maxCompletions = 500
+
 //go:embed completions.sh
 var complScript string
 
@@ -18,15 +20,20 @@ func GetCompletions(text string) []string {
 		log.Error("Error getting bash completions: ", err)
 		return nil
 	}
-	// return strings.Split(string(out), "\n")
+	completions := strings.Split(string(out), "\n")
+	// log.Info("Got completions: ", len(completions))
+	if len(completions) > maxCompletions {
+		completions = completions[:maxCompletions]
+	}
 	var results []string
-	for _, res := range strings.Split(string(out), "\n") {
+	for _, res := range completions {
 		if res == "" {
 			continue
 		}
+		// log.Info("Completion: ", res)
 		if !strings.HasPrefix(res, text) {
 			parts := strings.Fields(text)
-			if len(parts) == 1 {
+			if len(parts) == 1 || strings.HasSuffix(text, " ") {
 				res = text + res
 			} else {
 				parts = append(parts[:len(parts)-1], res)
