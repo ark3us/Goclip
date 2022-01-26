@@ -25,13 +25,15 @@ type GoclipListener struct {
 	db           db.GoclipDB
 	clipLauncher ui.GoclipLauncher
 	appLauncher  ui.GoclipLauncher
+	cmdLauncher  ui.GoclipLauncher
 }
 
-func NewGoclipListener(goclipDB db.GoclipDB, clipLauncher ui.GoclipLauncher, appLauncher ui.GoclipLauncher) *GoclipListener {
+func NewGoclipListener(goclipDB db.GoclipDB, clipLauncher ui.GoclipLauncher, appLauncher ui.GoclipLauncher, cmdLauncher ui.GoclipLauncher) *GoclipListener {
 	return &GoclipListener{
 		db:           goclipDB,
 		clipLauncher: clipLauncher,
 		appLauncher:  appLauncher,
+		cmdLauncher:  cmdLauncher,
 	}
 }
 
@@ -52,6 +54,9 @@ func (s *GoclipListener) startHotkeyListener() {
 	hook.Register(hook.KeyDown, []string{sets.AppsKey, sets.AppsModKey}, func(event hook.Event) {
 		s.appLauncher.ShowEntries()
 	})
+	hook.Register(hook.KeyDown, []string{sets.CmdKey, sets.CmdModKey}, func(event hook.Event) {
+		s.cmdLauncher.ShowEntries()
+	})
 	start := hook.Start()
 	<-hook.Process(start)
 }
@@ -66,9 +71,10 @@ func main() {
 	goclipCb := clipboard.New(goclipDB)
 	clipLauncher := launcher.NewClipboardLauncher(goclipDB, goclipCb)
 	appLauncher := launcher.NewAppsLauncher(goclipDB)
+	cmdLauncher := launcher.NewCmdLauncher()
 	log.Info("Starting listener")
 	goclipSets := settings.New(goclipDB)
-	goclipListener := NewGoclipListener(goclipDB, clipLauncher, appLauncher)
+	goclipListener := NewGoclipListener(goclipDB, clipLauncher, appLauncher, cmdLauncher)
 	goclipCb.Start()
 	goclipListener.Start()
 	goclipDB.SetRefreshCallback(appLauncher.RedrawApps)

@@ -4,10 +4,24 @@ import (
 	"Goclip/db"
 	"Goclip/goclip"
 	"Goclip/goclip/log"
+	_ "embed"
 	"github.com/dawidd6/go-appindicator"
 	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
+	"io/ioutil"
+	"os"
+	"os/user"
+	"path/filepath"
 	"strconv"
+)
+
+//go:embed Goclip.png
+var iconData []byte
+
+const (
+	relIconDir  = ".local/share/icons/hicolor/512x512/apps"
+	relIconFile = "Goclip.png"
+	iconName    = "Goclip"
 )
 
 type GoclipSettingsGtk struct {
@@ -44,8 +58,30 @@ func (s *GoclipSettingsGtk) Run() {
 	})
 	menu.Add(item)
 
-	indicator := appindicator.New(goclip.AppId, "icon", appindicator.CategoryApplicationStatus)
-	indicator.SetIconThemePath(".")
+	iconDir := ""
+	usr, err := user.Current()
+	if err != nil {
+		log.Warning("Cannot get current user: ", err)
+	} else {
+		iconDir = filepath.Join(usr.HomeDir, relIconDir)
+		iconFile := filepath.Join(iconDir, relIconFile)
+		if _, err := os.Stat(iconFile); err != nil {
+			log.Info("Trying to create icon dir: ", iconDir)
+			if err := os.MkdirAll(iconDir, os.ModePerm); err != nil {
+				log.Warning("Cannot create icon path: ", err)
+			} else {
+				log.Info("Saving icon file: ", iconFile)
+				if err := ioutil.WriteFile(iconFile, iconData, 0644); err != nil {
+					log.Warning("Cannot save icon: ", iconFile)
+				}
+			}
+		} else {
+			log.Info("Icon already present: ", iconFile)
+		}
+	}
+
+	indicator := appindicator.New(goclip.AppId, iconName, appindicator.CategoryApplicationStatus)
+	indicator.SetIconThemePath(iconDir)
 	indicator.SetTitle(goclip.AppName)
 	indicator.SetLabel(goclip.AppName, goclip.AppName)
 	indicator.SetStatus(appindicator.StatusActive)
@@ -77,10 +113,17 @@ func (s *GoclipSettingsGtk) showSettings() {
 
 	message, err := gtk.LabelNew("")
 
+	empty, err := gtk.LabelNew("")
+	layout.Add(empty)
+
+	label, err := gtk.LabelNew("Clipboard settings")
+	layout.Add(label)
+
 	grid, _ := gtk.GridNew()
 	grid.SetRowSpacing(10)
 	grid.SetColumnSpacing(10)
-	label, err := gtk.LabelNew("Maximum entries:")
+
+	label, err = gtk.LabelNew("Maximum entries:")
 	label.SetHAlign(gtk.ALIGN_END)
 	grid.Attach(label, 0, 0, 1, 1)
 
@@ -89,7 +132,7 @@ func (s *GoclipSettingsGtk) showSettings() {
 	inputMaxEntries.SetHExpand(true)
 	grid.Attach(inputMaxEntries, 1, 0, 1, 1)
 
-	label, err = gtk.LabelNew("Clipboard Mod key:")
+	label, err = gtk.LabelNew("Modkey:")
 	label.SetHAlign(gtk.ALIGN_END)
 	grid.Attach(label, 0, 1, 1, 1)
 
@@ -97,7 +140,7 @@ func (s *GoclipSettingsGtk) showSettings() {
 	inputModKey.SetText(settings.ClipboardModKey)
 	grid.Attach(inputModKey, 1, 1, 1, 1)
 
-	label, err = gtk.LabelNew("Clipboard key:")
+	label, err = gtk.LabelNew("Hotkey:")
 	label.SetHAlign(gtk.ALIGN_END)
 	grid.Attach(label, 0, 2, 1, 1)
 
@@ -105,21 +148,43 @@ func (s *GoclipSettingsGtk) showSettings() {
 	inputKey.SetText(settings.ClipboardKey)
 	grid.Attach(inputKey, 1, 2, 1, 1)
 
-	label, err = gtk.LabelNew("Applications Mod key:")
-	label.SetHAlign(gtk.ALIGN_END)
-	grid.Attach(label, 0, 3, 1, 1)
+	label, err = gtk.LabelNew("App launcher settings")
+	grid.Attach(label, 0, 3, 2, 1)
 
-	inputAppModKey, err := gtk.EntryNew()
-	inputAppModKey.SetText(settings.AppsModKey)
-	grid.Attach(inputAppModKey, 1, 3, 1, 1)
-
-	label, err = gtk.LabelNew("Applications key:")
+	label, err = gtk.LabelNew("Modkey:")
 	label.SetHAlign(gtk.ALIGN_END)
 	grid.Attach(label, 0, 4, 1, 1)
 
+	inputAppModKey, err := gtk.EntryNew()
+	inputAppModKey.SetText(settings.AppsModKey)
+	grid.Attach(inputAppModKey, 1, 4, 1, 1)
+
+	label, err = gtk.LabelNew("Hotkey:")
+	label.SetHAlign(gtk.ALIGN_END)
+	grid.Attach(label, 0, 5, 1, 1)
+
 	inputAppKey, err := gtk.EntryNew()
 	inputAppKey.SetText(settings.AppsKey)
-	grid.Attach(inputAppKey, 1, 4, 1, 1)
+	grid.Attach(inputAppKey, 1, 5, 1, 1)
+
+	label, err = gtk.LabelNew("Shell launcher settings")
+	grid.Attach(label, 0, 6, 2, 1)
+
+	label, err = gtk.LabelNew("Modkey:")
+	label.SetHAlign(gtk.ALIGN_END)
+	grid.Attach(label, 0, 7, 1, 1)
+
+	inputCmdModKey, err := gtk.EntryNew()
+	inputCmdModKey.SetText(settings.CmdModKey)
+	grid.Attach(inputCmdModKey, 1, 7, 1, 1)
+
+	label, err = gtk.LabelNew("Hotkey:")
+	label.SetHAlign(gtk.ALIGN_END)
+	grid.Attach(label, 0, 8, 1, 1)
+
+	inputCmdKey, err := gtk.EntryNew()
+	inputCmdKey.SetText(settings.CmdKey)
+	grid.Attach(inputCmdKey, 1, 8, 1, 1)
 
 	layout.Add(grid)
 
@@ -135,14 +200,19 @@ func (s *GoclipSettingsGtk) showSettings() {
 		}
 		modKey, err := inputModKey.GetText()
 		hookKey, err := inputKey.GetText()
-		appModKey, err := inputModKey.GetText()
-		appHookKey, err := inputKey.GetText()
+		appModKey, err := inputAppModKey.GetText()
+		appHookKey, err := inputAppKey.GetText()
+		cmdModKey, err := inputCmdModKey.GetText()
+		cmdHookKey, err := inputCmdKey.GetText()
 		settings.MaxEntries = n
-		if modKey != settings.ClipboardModKey || hookKey != settings.ClipboardKey || appModKey != settings.AppsModKey || appHookKey != settings.AppsKey {
+		if modKey != settings.ClipboardModKey || hookKey != settings.ClipboardKey || appModKey != settings.AppsModKey ||
+			appHookKey != settings.AppsKey || cmdModKey != settings.CmdModKey || cmdHookKey != settings.CmdKey {
 			settings.ClipboardModKey = modKey
 			settings.ClipboardKey = hookKey
 			settings.AppsModKey = appModKey
 			settings.AppsKey = appHookKey
+			settings.CmdModKey = cmdModKey
+			settings.CmdKey = cmdHookKey
 			message.SetLabel("Application restart required")
 		}
 		s.db.SaveSettings(settings)
@@ -168,7 +238,7 @@ func (s *GoclipSettingsGtk) showSettings() {
 
 	layout.Add(message)
 	s.settingsWin.Add(layout)
-	s.settingsWin.SetDefaultSize(500, 500)
+	s.settingsWin.SetDefaultSize(500, 250)
 	s.settingsWin.SetPosition(gtk.WIN_POS_MOUSE)
 	s.settingsWin.SetKeepAbove(true)
 	s.settingsWin.SetSkipTaskbarHint(true)

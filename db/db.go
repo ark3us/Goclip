@@ -35,6 +35,8 @@ type Settings struct {
 	ClipboardKey    string
 	AppsModKey      string
 	AppsKey         string
+	CmdModKey       string
+	CmdKey          string
 }
 
 func DefaultSettings() *Settings {
@@ -44,6 +46,8 @@ func DefaultSettings() *Settings {
 		ClipboardKey:    "v",
 		AppsModKey:      "win",
 		AppsKey:         "c",
+		CmdModKey:       "win",
+		CmdKey:          "x",
 	}
 }
 
