@@ -217,7 +217,7 @@ func (s *GoclipDBStorm) AddShellEntries(entries []*db.ShellEntry) error {
 }
 
 func (s *GoclipDBStorm) GetShellEntries(cmd string, limit int) ([]*db.ShellEntry, error) {
-	query := s.shellDb.Select(q.Re("Cmd", "(?i).*"+cmd+".*")).Limit(limit
+	query := s.shellDb.Select(q.Re("Cmd", "(?i).*"+cmd+".*")).Limit(limit)
 	var results []*db.ShellEntry
 	if err := query.Find(&results); err != nil {
 		if strings.Contains(err.Error(), "not found") {
