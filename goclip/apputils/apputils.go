@@ -3,9 +3,11 @@ package apputils
 import (
 	"Goclip/db"
 	"Goclip/goclip/log"
+	"Goclip/goclip/shellutils"
 	"bufio"
 	"io"
 	"io/fs"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -154,4 +156,50 @@ func (s *DesktopFileParser) ParseDesktopFile(fn string) ([]*db.AppEntry, error) 
 		entries = append(entries, entry)
 	}
 	return entries, nil
+}
+
+type AppManager struct {
+	db db.GoclipDB
+}
+
+func NewAppManager(myDb db.GoclipDB) *AppManager {
+	return &AppManager{db: myDb}
+}
+
+func (s *AppManager) LoadApps() {
+	parser := DesktopFileParser{}
+	pathEnv := os.Getenv("XDG_DATA_DIRS")
+	paths := strings.Split(pathEnv, ":")
+	var allEntries []*db.AppEntry
+	for _, path := range paths {
+		path = filepath.Join(path, "applications")
+		files, err := ioutil.ReadDir(path)
+		if err != nil {
+			log.Warning("Cannot read dir content: ", err)
+			continue
+		}
+		n := 0
+		for _, finfo := range files {
+			ffile := filepath.Join(path, finfo.Name())
+			entries, err := parser.ParseDesktopFile(ffile)
+			if err != nil {
+				continue
+			}
+			allEntries = append(allEntries, entries...)
+			n += len(entries)
+		}
+		log.Info(path, ": ", n)
+	}
+	if err := s.db.AddAppEntries(allEntries); err != nil {
+		log.Error("Error saving app entries: ", err)
+	}
+}
+
+func (s *AppManager) GetApps() []*db.AppEntry {
+	return s.db.GetAppEntries()
+}
+
+func (s *AppManager) ExecEntry(entry *db.AppEntry) {
+	shellutils.Exec(entry.Exec, entry.Terminal)
+	s.db.UpdateAppEntry(entry)
 }

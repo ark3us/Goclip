@@ -6,22 +6,23 @@ package launcher
 // static GdkWindow *toGdkWindow(void *p) { return (GDK_WINDOW(p)); }
 import "C"
 import (
-	"Goclip/clipboard"
+	"Goclip/cliputils"
 	"Goclip/db"
 	"Goclip/goclip"
-	"Goclip/goclip/cmdutils"
+	"Goclip/goclip/apputils"
 	"Goclip/goclip/log"
+	"Goclip/goclip/shellutils"
 	_ "embed"
 	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
 	"io/ioutil"
-	"os/user"
 	"strings"
 	"time"
 	"unsafe"
 )
 
+const windowWidth = 500
 const imgMaxSize = 250
 const iconMaxSize = 25
 const textMaxSize = 100
@@ -31,33 +32,24 @@ type LauncherType int8
 const (
 	LauncherTypeClipboard LauncherType = iota
 	LauncherTypeApps
-	LauncherTypeCmd
+	LauncherTypeShell
 )
 
 type Row struct {
 	Box      *gtk.Box
 	Id       string
-	DataType string
+	MimeType string
+	IsApp    bool
+	IsClip   bool
+	IsShell  bool
 }
 
 func (s *Row) IsSearchable() bool {
-	return strings.Contains(s.DataType, "text") || strings.Contains(s.DataType, "app")
+	return strings.Contains(s.MimeType, "text") || s.IsApp
 }
 
-func (s *Row) DbEntryContains(db db.GoclipDB, text string) bool {
-	if !s.IsSearchable() {
-		return false
-	}
-	if strings.Contains(s.DataType, "text") {
-		entry, err := db.GetEntry(s.Id)
-		if err != nil {
-			return false
-		}
-		return strings.Contains(strings.ToLower(string(entry.Data)), strings.ToLower(text))
-	} else if strings.Contains(s.DataType, "app") {
-		return strings.Contains(s.Id, text)
-	}
-	return false
+func (s *Row) IsText() bool {
+	return strings.Contains(s.MimeType, "text")
 }
 
 func ImageFromBytes(data []byte, maxSize int) *gtk.Image {
@@ -109,10 +101,11 @@ func ImageFromFile(fn string, maxSize int) *gtk.Image {
 }
 
 type GoclipLauncherGtk struct {
-	db    db.GoclipDB
-	clip  *clipboard.GoclipBoard
-	lType LauncherType
-	title string
+	lType        LauncherType
+	title        string
+	clipManager  *cliputils.ClipboardManager
+	shellManager *shellutils.ShellManager
+	appManager   *apputils.AppManager
 
 	app        *gtk.Application
 	contentWin *gtk.Window
@@ -122,27 +115,27 @@ type GoclipLauncherGtk struct {
 	cmdBox     *gtk.Box
 }
 
-func NewClipboardLauncher(myDb db.GoclipDB, myClip *clipboard.GoclipBoard) *GoclipLauncherGtk {
+func NewClipboardLauncher(myClip *cliputils.ClipboardManager) *GoclipLauncherGtk {
 	return &GoclipLauncherGtk{
-		db:    myDb,
-		clip:  myClip,
-		lType: LauncherTypeClipboard,
-		title: goclip.AppName + ": Clipboard",
+		clipManager: myClip,
+		lType:       LauncherTypeClipboard,
+		title:       goclip.AppName + ": Clipboard",
 	}
 }
 
-func NewAppsLauncher(myDb db.GoclipDB) *GoclipLauncherGtk {
+func NewAppsLauncher(appManager *apputils.AppManager) *GoclipLauncherGtk {
 	return &GoclipLauncherGtk{
-		db:    myDb,
-		lType: LauncherTypeApps,
-		title: goclip.AppName + ": Applications",
+		appManager: appManager,
+		lType:      LauncherTypeApps,
+		title:      goclip.AppName + ": Applications",
 	}
 }
 
-func NewCmdLauncher() *GoclipLauncherGtk {
+func NewShellLauncher(shellManager *shellutils.ShellManager) *GoclipLauncherGtk {
 	return &GoclipLauncherGtk{
-		lType: LauncherTypeCmd,
-		title: goclip.AppName + ": Shell",
+		lType:        LauncherTypeShell,
+		title:        goclip.AppName + ": Shell",
+		shellManager: shellManager,
 	}
 }
 
@@ -154,38 +147,68 @@ func (s *GoclipLauncherGtk) handleCompletions(text string) {
 	if s.cmdBox != nil {
 		s.cmdBox.Destroy()
 	}
-	if strings.Contains(text, "~/") {
-		usr, err := user.Current()
-		if err == nil {
-			text = strings.Replace(text, "~/", usr.HomeDir+"/", -1)
-			s.searchBox.SetText(text)
-			s.searchBox.SetPosition(-1)
-		}
+	if newText, err := shellutils.ExpandUserDir(text); err == nil {
+		s.searchBox.SetText(newText)
+		s.searchBox.SetPosition(-1)
 	}
-	s.cmdBox, _ = gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 10)
+	s.cmdBox, _ = gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 10)
+	histBox, _ := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 10)
+	label, _ := gtk.LabelNew("Command history")
+	label.SetSizeRequest(windowWidth/2, 0)
+	histBox.Add(label)
+	shellBox, _ := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 10)
+	label, _ = gtk.LabelNew("Shell commands")
+	label.SetSizeRequest(windowWidth/2, 0)
+	shellBox.Add(label)
+
 	if text != "" {
-		completions := cmdutils.GetCompletions(text)
+		completions := s.shellManager.GetShellCompletions(text)
 		// log.Info("Completions: ", len(completions))
 		for _, compl := range completions {
-			if compl == "" {
+			if compl.Cmd == "" {
 				continue
 			}
-			label, _ := gtk.ButtonNew()
-			label.SetHExpand(true)
-			label.SetLabel(compl)
-			_compl := compl
-			label.Connect("focus-in-event", func() {
-				s.searchBox.SetText(_compl)
+			button, _ := gtk.ButtonNew()
+			button.SetHExpand(true)
+			if len(compl.Cmd) > textMaxSize/2 {
+				button.SetLabel(compl.Cmd[:textMaxSize/2] + " ...")
+			} else {
+				button.SetLabel(compl.Cmd)
+			}
+			cmd := compl.Cmd
+			button.Connect("focus-in-event", func() {
+				s.searchBox.SetText(cmd)
 				s.searchBox.ShowAll()
 			})
-			label.Connect("clicked", func() {
+			button.Connect("clicked", func() {
 				s.searchBox.GrabFocus()
 			})
-			s.cmdBox.Add(label)
+			if compl.IsHistory {
+				histBox.Add(button)
+			} else {
+				shellBox.Add(button)
+			}
 		}
 	}
+	s.cmdBox.Add(histBox)
+	s.cmdBox.Add(shellBox)
 	s.contentBox.Add(s.cmdBox)
 	s.contentBox.ShowAll()
+}
+
+func (s *GoclipLauncherGtk) rowContains(row *Row, text string) bool {
+	if !row.IsSearchable() {
+		return false
+	}
+	if row.IsApp {
+		return strings.Contains(strings.ToLower(row.Id), strings.ToLower(text))
+	}
+	if row.IsText() {
+		if entry, err := s.clipManager.GetEntry(row.Id); err == nil {
+			return strings.Contains(strings.ToLower(string(entry.Data)), strings.ToLower(text))
+		}
+	}
+	return false
 }
 
 func (s *GoclipLauncherGtk) onSearching() {
@@ -195,13 +218,13 @@ func (s *GoclipLauncherGtk) onSearching() {
 		return
 	}
 	switch s.lType {
-	case LauncherTypeCmd:
+	case LauncherTypeShell:
 		s.handleCompletions(text)
 	default:
 		for _, row := range s.rows {
 			if text == "" {
 				row.Box.Show()
-			} else if row.DbEntryContains(s.db, text) {
+			} else if s.rowContains(row, text) {
 				row.Box.Show()
 			} else {
 				row.Box.Hide()
@@ -228,12 +251,12 @@ func (s *GoclipLauncherGtk) drawSearchBox(layout *gtk.Box) {
 			s.searchBox.SetPosition(-1)
 		}()
 	})
-	if s.lType == LauncherTypeCmd {
+	if s.lType == LauncherTypeShell {
 		s.searchBox.Connect("activate", func() {
 			cmd, _ := s.searchBox.GetText()
 			s.contentWin.Destroy()
 			if cmd != "" {
-				cmdutils.Exec(cmd, true)
+				shellutils.Exec(cmd, true)
 			}
 		})
 	}
@@ -277,13 +300,13 @@ func (s *GoclipLauncherGtk) drawEntry(entry *db.ClipboardEntry) {
 		if btnEvt.Type() == gdk.EVENT_BUTTON_PRESS {
 			if btnEvt.Button() == gdk.BUTTON_PRIMARY {
 				log.Info("Left click")
-				if entry, err := s.db.GetEntry(md5); err == nil {
-					s.clip.WriteEntry(entry)
+				if entry, err := s.clipManager.GetEntry(md5); err == nil {
+					s.clipManager.WriteEntry(entry)
 				}
 			} else if btnEvt.Button() == gdk.BUTTON_SECONDARY {
 				log.Info("Right click")
-				if entry, err := s.db.GetEntry(md5); err == nil {
-					cmdutils.ExecEntry(entry)
+				if entry, err := s.clipManager.GetEntry(md5); err == nil {
+					shellutils.OpenEntry(entry)
 				}
 			}
 			s.contentWin.Destroy()
@@ -294,7 +317,7 @@ func (s *GoclipLauncherGtk) drawEntry(entry *db.ClipboardEntry) {
 	delButton, err := gtk.ButtonNew()
 	delButton.SetLabel("X")
 	delButton.Connect("clicked", func() {
-		s.db.DeleteEntry(md5)
+		s.clipManager.DeleteEntry(md5)
 		for _, row := range s.rows {
 			if row.Id == md5 {
 				row.Box.Destroy()
@@ -307,7 +330,8 @@ func (s *GoclipLauncherGtk) drawEntry(entry *db.ClipboardEntry) {
 	s.rows = append(s.rows, &Row{
 		Box:      row,
 		Id:       entry.Md5,
-		DataType: entry.Mime,
+		MimeType: entry.Mime,
+		IsClip:   true,
 	})
 }
 
@@ -333,16 +357,15 @@ func (s *GoclipLauncherGtk) drawApp(entry *db.AppEntry) {
 	entryButton.Connect("clicked", func() {
 		s.contentWin.Destroy()
 		log.Info("Entry: ", entry.File, " Exec: ", entry.Exec)
-		cmdutils.Exec(entry.Exec, entry.Terminal)
-		s.db.UpdateAppAccess(entry)
+		s.appManager.ExecEntry(entry)
 	})
 	row.Add(entryButton)
 
 	s.contentBox.Add(row)
 	s.rows = append(s.rows, &Row{
-		Box:      row,
-		Id:       entry.Exec,
-		DataType: "app",
+		Box:   row,
+		Id:    entry.Exec,
+		IsApp: true,
 	})
 }
 
@@ -354,7 +377,7 @@ func (s *GoclipLauncherGtk) drawEntries() {
 	switch s.lType {
 	case LauncherTypeClipboard:
 		s.contentBox, _ = gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 10)
-		for _, entry := range s.db.GetEntries() {
+		for _, entry := range s.clipManager.GetEntries() {
 			s.drawEntry(entry)
 		}
 	case LauncherTypeApps:
@@ -367,9 +390,10 @@ func (s *GoclipLauncherGtk) drawEntries() {
 }
 
 func (s *GoclipLauncherGtk) RedrawApps() {
+	s.appManager.LoadApps()
 	s.contentBox, _ = gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 10)
 	log.Info("Redrawing apps")
-	for _, entry := range s.db.GetApps() {
+	for _, entry := range s.appManager.GetApps() {
 		s.drawApp(entry)
 	}
 }
@@ -400,13 +424,21 @@ func (s *GoclipLauncherGtk) showEntries() {
 
 	s.contentWin.Add(contentLayout)
 	s.contentWin.SetTitle(s.title)
-	s.contentWin.SetDefaultSize(500, 500)
+	s.contentWin.SetDefaultSize(windowWidth, windowWidth)
 	s.contentWin.SetSkipTaskbarHint(true)
 	s.contentWin.SetTypeHint(gdk.WINDOW_TYPE_HINT_UTILITY)
 	s.contentWin.SetKeepAbove(true)
 	s.contentWin.SetPosition(gtk.WIN_POS_MOUSE)
 	s.contentWin.Connect("focus-out-event", s.onFocusOut)
 	s.contentWin.Connect("key-press-event", s.onKeyPress)
+	s.contentWin.Connect("destroy", func() {
+		switch s.lType {
+		case LauncherTypeApps:
+			go s.RedrawApps()
+		case LauncherTypeShell:
+			go s.shellManager.LoadHistory()
+		}
+	})
 
 	// Trick needed to grab the focus
 	s.contentWin.PresentWithTime(gdk.CURRENT_TIME)

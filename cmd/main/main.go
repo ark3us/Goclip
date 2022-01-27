@@ -1,10 +1,12 @@
 package main
 
 import (
-	"Goclip/clipboard"
+	"Goclip/cliputils"
 	"Goclip/db"
 	"Goclip/db/storm"
+	"Goclip/goclip/apputils"
 	"Goclip/goclip/log"
+	"Goclip/goclip/shellutils"
 	"Goclip/ui"
 	"Goclip/ui/gtk/launcher"
 	"Goclip/ui/gtk/settings"
@@ -14,7 +16,7 @@ import (
 	"strings"
 )
 
-var dbFile = "~/goclip_db"
+var dbDir = "~/goclip"
 
 const (
 	argClipboard = "clipboard"
@@ -28,7 +30,7 @@ type GoclipListener struct {
 	cmdLauncher  ui.GoclipLauncher
 }
 
-func NewGoclipListener(goclipDB db.GoclipDB, clipLauncher ui.GoclipLauncher, appLauncher ui.GoclipLauncher, cmdLauncher ui.GoclipLauncher) *GoclipListener {
+func HotkeyListener(goclipDB db.GoclipDB, clipLauncher ui.GoclipLauncher, appLauncher ui.GoclipLauncher, cmdLauncher ui.GoclipLauncher) *GoclipListener {
 	return &GoclipListener{
 		db:           goclipDB,
 		clipLauncher: clipLauncher,
@@ -49,7 +51,6 @@ func (s *GoclipListener) startHotkeyListener() {
 	hook.Keycode["win"] = 125
 	hook.Register(hook.KeyDown, []string{sets.ClipboardKey, sets.ClipboardModKey}, func(event hook.Event) {
 		s.clipLauncher.ShowEntries()
-
 	})
 	hook.Register(hook.KeyDown, []string{sets.AppsKey, sets.AppsModKey}, func(event hook.Event) {
 		s.appLauncher.ShowEntries()
@@ -63,21 +64,30 @@ func (s *GoclipListener) startHotkeyListener() {
 
 func main() {
 	// log.Debug = true
-	if strings.HasPrefix(dbFile, "~/") {
+	if strings.HasPrefix(dbDir, "~/") {
 		dirname, _ := os.UserHomeDir()
-		dbFile = filepath.Join(dirname, dbFile[2:])
+		dbDir = filepath.Join(dirname, dbDir[2:])
 	}
-	goclipDB := storm.New(dbFile)
-	goclipCb := clipboard.New(goclipDB)
-	clipLauncher := launcher.NewClipboardLauncher(goclipDB, goclipCb)
-	appLauncher := launcher.NewAppsLauncher(goclipDB)
-	cmdLauncher := launcher.NewCmdLauncher()
+	goclipDb, err := storm.New(dbDir)
+	if err != nil {
+		return
+	}
+	clipManager := cliputils.NewClipboardManager(goclipDb)
+	clipManager.StartListener()
+	appManager := apputils.NewAppManager(goclipDb)
+	shellManager := shellutils.NewShellManager(goclipDb)
+	go shellManager.LoadHistory()
+
+	clipLauncher := launcher.NewClipboardLauncher(clipManager)
+	appLauncher := launcher.NewAppsLauncher(appManager)
+	cmdLauncher := launcher.NewShellLauncher(shellManager)
+
+	settingsApp := settings.New(goclipDb)
+	settingsApp.SetReloadAppsCallback(appLauncher.RedrawApps)
+
 	log.Info("Starting listener")
-	goclipSets := settings.New(goclipDB)
-	goclipListener := NewGoclipListener(goclipDB, clipLauncher, appLauncher, cmdLauncher)
-	goclipCb.Start()
-	goclipListener.Start()
-	goclipDB.SetRefreshCallback(appLauncher.RedrawApps)
-	go goclipDB.RefreshApps()
-	goclipSets.Run()
+	hotkeyListener := HotkeyListener(goclipDb, clipLauncher, appLauncher, cmdLauncher)
+	hotkeyListener.Start()
+
+	settingsApp.Run()
 }

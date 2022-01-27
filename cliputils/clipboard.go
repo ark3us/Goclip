@@ -1,4 +1,4 @@
-package clipboard
+package cliputils
 
 import (
 	"Goclip/db"
@@ -9,20 +9,20 @@ import (
 	"time"
 )
 
-type GoclipBoard struct {
+type ClipboardManager struct {
 	db db.GoclipDB
 }
 
-func New(myDb db.GoclipDB) *GoclipBoard {
-	return &GoclipBoard{db: myDb}
+func NewClipboardManager(myDb db.GoclipDB) *ClipboardManager {
+	return &ClipboardManager{db: myDb}
 }
 
-func (s *GoclipBoard) Start() {
+func (s *ClipboardManager) StartListener() {
 	go s.startTextListener()
 	go s.startImageListener()
 }
 
-func (s *GoclipBoard) startTextListener() {
+func (s *ClipboardManager) startTextListener() {
 	ch := clipboard.Watch(context.TODO(), clipboard.FmtText)
 	for data := range ch {
 		log.Info("Got text: ", string(data))
@@ -32,11 +32,11 @@ func (s *GoclipBoard) startTextListener() {
 			Data:      data,
 			Timestamp: time.Now(),
 		}
-		s.db.AddEntry(entry)
+		s.db.AddClipboardEntry(entry)
 	}
 }
 
-func (s *GoclipBoard) startImageListener() {
+func (s *ClipboardManager) startImageListener() {
 	ch := clipboard.Watch(context.TODO(), clipboard.FmtImage)
 	for data := range ch {
 		log.Info("Got image: ", len(data))
@@ -46,19 +46,19 @@ func (s *GoclipBoard) startImageListener() {
 			Data:      data,
 			Timestamp: time.Now(),
 		}
-		s.db.AddEntry(entry)
+		s.db.AddClipboardEntry(entry)
 	}
 }
 
-func (s *GoclipBoard) WriteText(text string) {
+func (s *ClipboardManager) WriteText(text string) {
 	clipboard.Write(clipboard.FmtText, []byte(text))
 }
 
-func (s *GoclipBoard) WriteImage(data []byte) {
+func (s *ClipboardManager) WriteImage(data []byte) {
 	clipboard.Write(clipboard.FmtImage, data)
 }
 
-func (s *GoclipBoard) WriteEntry(entry *db.ClipboardEntry) {
+func (s *ClipboardManager) WriteEntry(entry *db.ClipboardEntry) {
 	if entry.IsText() {
 		s.WriteText(string(entry.Data))
 	} else if entry.IsImage() {
@@ -66,4 +66,16 @@ func (s *GoclipBoard) WriteEntry(entry *db.ClipboardEntry) {
 	} else {
 		log.Warning("Warning: Invalid entry mimetype: ", entry.Mime)
 	}
+}
+
+func (s *ClipboardManager) GetEntries() []*db.ClipboardEntry {
+	return s.db.GetClipboardEntries()
+}
+
+func (s *ClipboardManager) GetEntry(md5 string) (*db.ClipboardEntry, error) {
+	return s.db.GetClipboardEntry(md5)
+}
+
+func (s *ClipboardManager) DeleteEntry(md5 string) error {
+	return s.db.DeleteClipboardEntry(md5)
 }

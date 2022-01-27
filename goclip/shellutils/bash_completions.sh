@@ -1,3 +1,4 @@
+#!/bin/bash
 #
 # Original Author: Brian Beffa <brbsix@gmail.com>
 # Original source: https://brbsix.github.io/2015/11/29/accessing-tab-completion-programmatically-in-bash/

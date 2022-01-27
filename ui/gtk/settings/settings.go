@@ -25,12 +25,17 @@ const (
 )
 
 type GoclipSettingsGtk struct {
-	db          db.GoclipDB
-	settingsWin *gtk.Window
+	db           db.GoclipDB
+	settingsWin  *gtk.Window
+	reloadAppsCb func()
 }
 
 func New(goclipDB db.GoclipDB) *GoclipSettingsGtk {
 	return &GoclipSettingsGtk{db: goclipDB}
+}
+
+func (s *GoclipSettingsGtk) SetReloadAppsCallback(callback func()) {
+	s.reloadAppsCb = callback
 }
 
 func (s *GoclipSettingsGtk) Run() {
@@ -48,7 +53,11 @@ func (s *GoclipSettingsGtk) Run() {
 
 	item, err = gtk.MenuItemNewWithLabel("Reload apps")
 	item.Connect("activate", func() {
-		go s.db.RefreshApps()
+		if s.reloadAppsCb != nil {
+			go s.reloadAppsCb()
+		} else {
+			log.Error("No callback set")
+		}
 	})
 	menu.Add(item)
 
@@ -87,6 +96,11 @@ func (s *GoclipSettingsGtk) Run() {
 	indicator.SetStatus(appindicator.StatusActive)
 	indicator.SetMenu(menu)
 	menu.ShowAll()
+	menu.Connect("show", func() {
+		if s.reloadAppsCb != nil {
+			go s.reloadAppsCb()
+		}
+	})
 	gtk.Main()
 }
 
