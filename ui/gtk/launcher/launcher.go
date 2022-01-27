@@ -252,6 +252,7 @@ func (s *GoclipLauncherGtk) drawEntry(entry *db.ClipboardEntry) {
 	row.Add(tsLabel)
 
 	entryButton, err := gtk.ButtonNew()
+	entryButton.SetHExpand(true)
 	if entry.IsText() {
 		var text string
 		if len(entry.Data) > textMaxSize {
@@ -269,16 +270,29 @@ func (s *GoclipLauncherGtk) drawEntry(entry *db.ClipboardEntry) {
 		log.Warning("Warning: invalid entry type:", entry.Mime)
 		return
 	}
-	entryButton.SetHExpand(true)
-	entryButton.Connect("clicked", func() {
-		s.clip.WriteEntry(entry)
-		s.contentWin.Close()
+
+	md5 := entry.Md5
+	entryButton.Connect("button-press-event", func(btn *gtk.Button, evt *gdk.Event) {
+		btnEvt := gdk.EventButton{Event: evt}
+		if btnEvt.Type() == gdk.EVENT_BUTTON_PRESS {
+			if btnEvt.Button() == gdk.BUTTON_PRIMARY {
+				log.Info("Left click")
+				if entry, err := s.db.GetEntry(md5); err == nil {
+					s.clip.WriteEntry(entry)
+				}
+			} else if btnEvt.Button() == gdk.BUTTON_SECONDARY {
+				log.Info("Right click")
+				if entry, err := s.db.GetEntry(md5); err == nil {
+					cmdutils.ExecEntry(entry)
+				}
+			}
+			s.contentWin.Destroy()
+		}
 	})
 	row.Add(entryButton)
 
 	delButton, err := gtk.ButtonNew()
 	delButton.SetLabel("X")
-	md5 := entry.Md5
 	delButton.Connect("clicked", func() {
 		s.db.DeleteEntry(md5)
 		for _, row := range s.rows {
