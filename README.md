@@ -14,6 +14,31 @@ This application is just a proof-of-concept and might be highly unstable.
 - Simple UI (https://github.com/gotk3/gotk3)
 - System tray icon (https://github.com/getlantern/systray)
 
+
+## Usage
+
+AppImage executable is available in Releases.
+
+### Default hotkeys
+
+- Win+V : open clipboard manager
+- Win+C : open app launcher
+- Win+x : open shell launcher
+
+### Clipbord manager shortcuts
+
+- Left click: copy entry into clipboard
+- Right click: open entry with default app
+
+### App launcher shortcuts
+
+- Left click: launch application
+
+### Shell launcher shortcuts
+
+- Focus suggestion: autocomplete
+- Enter: execute in default terminal
+
 ## Build
 
 ### Requirements
@@ -31,15 +56,7 @@ sudo apt install libgtk-3-dev libcairo2-dev libglib2.0-dev
 sudo apt-get install gcc libgtk-3-dev libappindicator3-dev
 ```
 
-# Usage
-
-## Default keys
-
-- Win+V : open clipboard manager
-- Win+C : open app launcher
-- Win+x : open shell launcher
-
-# Improvements
+## Improvements
 
 A LOT can be improved, this is just a proof-of-concept...
 
