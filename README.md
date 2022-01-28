@@ -46,7 +46,7 @@ This application is just a proof-of-concept and might be highly unstable.
 
 ## Build
 
-AppImage executable available here: https://github.com/ark3us/Goclip/releases
+Pre-built AppImage executable available here: https://github.com/ark3us/Goclip/releases
 
 ### Requirements
 ```
