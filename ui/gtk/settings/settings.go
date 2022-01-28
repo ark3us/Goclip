@@ -2,8 +2,8 @@ package settings
 
 import (
 	"Goclip/db"
-	"Goclip/goclip"
-	"Goclip/goclip/log"
+	"Goclip/log"
+	"Goclip/utils"
 	_ "embed"
 	"github.com/dawidd6/go-appindicator"
 	"github.com/gotk3/gotk3/glib"
@@ -89,10 +89,10 @@ func (s *GoclipSettingsGtk) Run() {
 		}
 	}
 
-	indicator := appindicator.New(goclip.AppId, iconName, appindicator.CategoryApplicationStatus)
+	indicator := appindicator.New(utils.AppId, iconName, appindicator.CategoryApplicationStatus)
 	indicator.SetIconThemePath(iconDir)
-	indicator.SetTitle(goclip.AppName)
-	indicator.SetLabel(goclip.AppName, goclip.AppName)
+	indicator.SetTitle(utils.AppName)
+	indicator.SetLabel(utils.AppName, utils.AppName)
 	indicator.SetStatus(appindicator.StatusActive)
 	indicator.SetMenu(menu)
 	menu.ShowAll()
@@ -122,7 +122,7 @@ func (s *GoclipSettingsGtk) showSettings() {
 	if err != nil {
 		log.Fatal("Error creating settings Window: ", err.Error())
 	}
-	s.settingsWin.SetTitle(goclip.AppName + ": Settings")
+	s.settingsWin.SetTitle(utils.AppName + ": Settings")
 	layout, err := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 10)
 
 	message, err := gtk.LabelNew("")

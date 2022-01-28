@@ -2,7 +2,7 @@ package storm
 
 import (
 	"Goclip/db"
-	"Goclip/goclip/log"
+	"Goclip/log"
 	"github.com/asdine/storm/v3"
 	"github.com/asdine/storm/v3/codec/protobuf"
 	"github.com/asdine/storm/v3/q"

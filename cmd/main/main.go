@@ -1,12 +1,12 @@
 package main
 
 import (
+	"Goclip/apputils"
 	"Goclip/cliputils"
 	"Goclip/db"
 	"Goclip/db/storm"
-	"Goclip/goclip/apputils"
-	"Goclip/goclip/log"
-	"Goclip/goclip/shellutils"
+	"Goclip/log"
+	"Goclip/shellutils"
 	"Goclip/ui"
 	"Goclip/ui/gtk/launcher"
 	"Goclip/ui/gtk/settings"

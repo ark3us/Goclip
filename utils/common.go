@@ -1,4 +1,4 @@
-package goclip
+package utils
 
 import (
 	"crypto/md5"

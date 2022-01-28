@@ -2,8 +2,8 @@ package apputils
 
 import (
 	"Goclip/db"
-	"Goclip/goclip/log"
-	"Goclip/goclip/shellutils"
+	"Goclip/log"
+	"Goclip/shellutils"
 	"bufio"
 	"io"
 	"io/fs"

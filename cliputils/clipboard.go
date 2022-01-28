@@ -2,8 +2,8 @@ package cliputils
 
 import (
 	"Goclip/db"
-	"Goclip/goclip"
-	"Goclip/goclip/log"
+	"Goclip/log"
+	"Goclip/utils"
 	"context"
 	"golang.design/x/clipboard"
 	"time"
@@ -27,7 +27,7 @@ func (s *ClipboardManager) startTextListener() {
 	for data := range ch {
 		log.Info("Got text: ", string(data))
 		entry := &db.ClipboardEntry{
-			Md5:       goclip.Md5Digest(data),
+			Md5:       utils.Md5Digest(data),
 			Mime:      "text/plain",
 			Data:      data,
 			Timestamp: time.Now(),
@@ -41,7 +41,7 @@ func (s *ClipboardManager) startImageListener() {
 	for data := range ch {
 		log.Info("Got image: ", len(data))
 		entry := &db.ClipboardEntry{
-			Md5:       goclip.Md5Digest(data),
+			Md5:       utils.Md5Digest(data),
 			Mime:      "image/png",
 			Data:      data,
 			Timestamp: time.Now(),

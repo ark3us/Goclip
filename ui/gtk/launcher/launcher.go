@@ -6,12 +6,12 @@ package launcher
 // static GdkWindow *toGdkWindow(void *p) { return (GDK_WINDOW(p)); }
 import "C"
 import (
+	"Goclip/apputils"
 	"Goclip/cliputils"
 	"Goclip/db"
-	"Goclip/goclip"
-	"Goclip/goclip/apputils"
-	"Goclip/goclip/log"
-	"Goclip/goclip/shellutils"
+	"Goclip/log"
+	"Goclip/shellutils"
+	"Goclip/utils"
 	_ "embed"
 	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/glib"
@@ -119,7 +119,7 @@ func NewClipboardLauncher(myClip *cliputils.ClipboardManager) *GoclipLauncherGtk
 	return &GoclipLauncherGtk{
 		clipManager: myClip,
 		lType:       LauncherTypeClipboard,
-		title:       goclip.AppName + ": Clipboard",
+		title:       utils.AppName + ": Clipboard",
 	}
 }
 
@@ -127,14 +127,14 @@ func NewAppsLauncher(appManager *apputils.AppManager) *GoclipLauncherGtk {
 	return &GoclipLauncherGtk{
 		appManager: appManager,
 		lType:      LauncherTypeApps,
-		title:      goclip.AppName + ": Applications",
+		title:      utils.AppName + ": Applications",
 	}
 }
 
 func NewShellLauncher(shellManager *shellutils.ShellManager) *GoclipLauncherGtk {
 	return &GoclipLauncherGtk{
 		lType:        LauncherTypeShell,
-		title:        goclip.AppName + ": Shell",
+		title:        utils.AppName + ": Shell",
 		shellManager: shellManager,
 	}
 }
@@ -283,7 +283,7 @@ func (s *GoclipLauncherGtk) drawEntry(entry *db.ClipboardEntry) {
 	if err != nil {
 		log.Fatal("Error creating box: ", err)
 	}
-	tsLabel, err := gtk.LabelNew(goclip.TimeToString(entry.Timestamp, false))
+	tsLabel, err := gtk.LabelNew(utils.TimeToString(entry.Timestamp, false))
 	row.Add(tsLabel)
 
 	entryButton, err := gtk.ButtonNew()
@@ -352,7 +352,7 @@ func (s *GoclipLauncherGtk) drawApp(entry *db.AppEntry) {
 	if err != nil {
 		log.Fatal("Error creating box: ", err)
 	}
-	tsLabel, err := gtk.LabelNew(goclip.TimeToString(entry.AccessTime, false))
+	tsLabel, err := gtk.LabelNew(utils.TimeToString(entry.AccessTime, false))
 	row.Add(tsLabel)
 
 	image := ImageFromFile(entry.Icon, iconMaxSize)

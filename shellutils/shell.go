@@ -2,7 +2,7 @@ package shellutils
 
 import (
 	"Goclip/db"
-	"Goclip/goclip/log"
+	"Goclip/log"
 	"bytes"
 	_ "embed"
 	"errors"
