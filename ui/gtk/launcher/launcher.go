@@ -183,6 +183,18 @@ func (s *GoclipLauncherGtk) handleCompletions(text string) {
 			button.Connect("clicked", func() {
 				s.searchBox.GrabFocus()
 			})
+			button.Connect("button-press-event", func(btn *gtk.Button, evt *gdk.Event) {
+				btnEvt := gdk.EventButton{Event: evt}
+				if btnEvt.Type() == gdk.EVENT_BUTTON_PRESS {
+					if btnEvt.Button() == gdk.BUTTON_SECONDARY {
+						s.contentWin.Destroy()
+						if cmd != "" {
+							shellutils.Exec(cmd, true)
+							return
+						}
+					}
+				}
+			})
 			if compl.IsHistory {
 				histBox.Add(button)
 			} else {

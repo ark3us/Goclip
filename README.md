@@ -37,7 +37,8 @@ AppImage executable is available in Releases.
 ### Shell launcher shortcuts
 
 - Focus suggestion: autocomplete
-- Enter: execute in default terminal
+- Enter in search box: execute in default terminal
+- Right click on entry: execute in terminal
 
 ## Build
 

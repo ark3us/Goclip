@@ -150,16 +150,23 @@ func (s *ShellManager) GetShellCompletions(text string) []*db.ShellEntry {
 func Exec(command string, inTerminal bool) {
 	var args []string
 	if inTerminal {
-		args = append([]string{"x-terminal-emulator", "-x"}, "$SHELL -i -c '"+command+";$SHELL'")
+		shell := os.Getenv("SHELL")
+		if shell == "" {
+			log.Warning("Cannot find shell to run command, using /bin/sh")
+			shell = "/bin/sh"
+		}
+		args = []string{"x-terminal-emulator", "-x", shell, "-i", "-c", command, ";", shell}
 	} else {
 		args = strings.Fields(command)
 	}
 	log.Info("Executing: ", strings.Join(args, " "))
 	cmd := exec.Command("nohup", args...)
+	// out, err := cmd.CombinedOutput()
 	err := cmd.Start()
 	if err != nil {
 		log.Error("Command error: ", err)
 	}
+	// log.Info(string(out))
 }
 
 func OpenEntry(entry *db.ClipboardEntry) {
