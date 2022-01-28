@@ -18,8 +18,6 @@ This application is just a proof-of-concept and might be highly unstable.
 
 ## Usage
 
-AppImage executable is available in Releases.
-
 ### Default hotkeys
 
 - Win+V : open clipboard manager
@@ -47,6 +45,8 @@ AppImage executable is available in Releases.
 - terminator
 
 ## Build
+
+AppImage executable available here: https://github.com/ark3us/Goclip/releases
 
 ### Requirements
 ```
