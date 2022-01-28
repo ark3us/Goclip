@@ -1,6 +1,6 @@
 # Goclip
 
-Simple Windows-like clipboard manager for linux.
+Simple Windows-like clipboard manager and command launcher for Linux / Ubuntu, written in Go.
 
 This application is just a proof-of-concept and might be highly unstable.
 
