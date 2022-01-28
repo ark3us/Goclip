@@ -6,13 +6,14 @@ This application is just a proof-of-concept and might be highly unstable.
 
 ## Features
 
-- Clipboard text and image support (https://github.com/golang-design/clipboard)
+- Clipboard manager 
 - App launcher
-- Shell commands with autocomplete
+- Shell launcher with autocomplete
+- Text and image support (https://github.com/golang-design/clipboard)
 - Data persistence (https://github.com/asdine/storm)
 - System shortcut (https://github.com/robotn/gohook)
-- Simple UI (https://github.com/gotk3/gotk3)
-- System tray icon (https://github.com/getlantern/systray)
+- Gtk3 UI (https://github.com/gotk3/gotk3)
+- Appindicator system tar (github.com/dawidd6/go-appindicator)
 
 
 ## Usage
@@ -39,6 +40,11 @@ AppImage executable is available in Releases.
 - Focus suggestion: autocomplete
 - Enter in search box: execute in default terminal
 - Right click on entry: execute in terminal
+
+#### Supported terminals:
+
+- gnome-terminal
+- terminator
 
 ## Build
 
