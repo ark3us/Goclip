@@ -8,10 +8,10 @@ require (
 	github.com/gotk3/gotk3 v0.6.1
 	github.com/robotn/gohook v0.40.0
 	golang.design/x/clipboard v0.5.3
-	golang.design/x/hotkey v0.3.0
 )
 
 require (
+	github.com/golang/protobuf v1.3.2 // indirect
 	github.com/stretchr/testify v1.7.0 // indirect
 	github.com/vcaesar/keycode v0.10.0 // indirect
 	go.etcd.io/bbolt v1.3.6 // indirect

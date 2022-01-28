@@ -4,6 +4,7 @@ import (
 	"Goclip/db"
 	"Goclip/goclip/log"
 	"github.com/asdine/storm/v3"
+	"github.com/asdine/storm/v3/codec/protobuf"
 	"github.com/asdine/storm/v3/q"
 	"os"
 	"path/filepath"
@@ -48,7 +49,7 @@ func New(dbDir string) (*GoclipDBStorm, error) {
 }
 
 func openDb(fn string) (*storm.DB, error) {
-	myDb, err := storm.Open(fn)
+	myDb, err := storm.Open(fn, storm.Codec(protobuf.Codec))
 	if err != nil {
 		log.Error("Error opening database: ", fn, " - ", err)
 		return nil, err
@@ -187,31 +188,80 @@ func (s *GoclipDBStorm) DropAll() error {
 	return nil
 }
 
-func (s *GoclipDBStorm) AddAppEntries(entries []*db.AppEntry) error {
-	log.Info("Refreshing apps...")
-	appEntry := db.AppEntry{}
-	for _, entry := range entries {
-		if err := s.appDb.One("Exec", entry.Exec, &appEntry); err != nil {
-			log.Info("New:", entry.Exec, err)
-			if err := s.appDb.Save(entry); err != nil {
-				log.Error("Cannot save entry, aborting: ", err)
-				return err
-			}
+func appEntriesContain(entries []*db.AppEntry, entry *db.AppEntry) bool {
+	for i := range entries {
+		if entries[i].Exec == entry.Exec {
+			return true
 		}
 	}
-	log.Info("Refresh complete, added apps: ", len(entries))
+	return false
+}
+
+func (s *GoclipDBStorm) AddAppEntries(newEntries []*db.AppEntry) error {
+	log.Info("Removing old apps...")
+	tx, err := s.appDb.Begin(true)
+	if err != nil {
+		log.Error("Cannot start transaction: ", err)
+		return err
+	}
+	removed := 0
+	var oldEntries []*db.AppEntry
+	if err := tx.All(&oldEntries); err != nil {
+		log.Warning("Cannot get old entries: ", err)
+	}
+	var toExclude []*db.AppEntry
+	for i := range oldEntries {
+		if !appEntriesContain(newEntries, oldEntries[i]) {
+			if err := tx.DeleteStruct(oldEntries[i]); err != nil {
+				log.Warning("Cannot delete old entry: ", err)
+			} else {
+				removed++
+			}
+		} else {
+			toExclude = append(toExclude, oldEntries[i])
+		}
+	}
+	log.Info("Old apps removed: ", removed)
+
+	log.Info("Adding new apps...")
+	added := 0
+	for i := range newEntries {
+		if !appEntriesContain(toExclude, newEntries[i]) {
+			log.Info("New:", newEntries[i].Exec)
+			if err := tx.Save(newEntries[i]); err != nil {
+				log.Error("Cannot save entry, aborting: ", err)
+				tx.Rollback()
+				return err
+			}
+			added++
+		}
+	}
+	log.Info("Refresh complete, added apps: ", added)
+	if err := tx.Commit(); err != nil {
+		log.Error("Cannot commit transaction: ", err)
+	}
 	return nil
 }
 
 func (s *GoclipDBStorm) AddShellEntries(entries []*db.ShellEntry) error {
-	if err := s.shellDb.Drop(&db.ShellEntry{}); err != nil {
+	// Bulk insert without transaction is SLOW because it waits i/o for each Save
+	tx, err := s.shellDb.Begin(true)
+	if err != nil {
+		log.Error("Error starting transaction: ", err)
+		return err
+	}
+	if err = tx.Drop(&db.ShellEntry{}); err != nil {
 		log.Warning("Error dropping shell history: ", err)
 	}
-	for _, entry := range entries {
-		if err := s.shellDb.Save(entry); err != nil {
+	for i := range entries {
+		if err = tx.Save(entries[i]); err != nil {
 			log.Error("Cannot save entry, aborting: ", err)
+			tx.Rollback()
 			return err
 		}
+	}
+	if err := tx.Commit(); err != nil {
+		log.Error("Cannot commit transaction: ", err)
 	}
 	return nil
 }
