@@ -1,6 +1,6 @@
 # Goclip
 
-Simple Windows-like clipboard manager for linux.
+Simple Windows-like clipboard manager and command launcher for Linux / Ubuntu, written in Go.
 
 This application is just a proof-of-concept and might be highly unstable.
 
@@ -13,7 +13,7 @@ This application is just a proof-of-concept and might be highly unstable.
 - Data persistence (https://github.com/asdine/storm)
 - System shortcut (https://github.com/robotn/gohook)
 - Gtk3 UI (https://github.com/gotk3/gotk3)
-- Appindicator system tar (github.com/dawidd6/go-appindicator)
+- Appindicator system tray (https://github.com/dawidd6/go-appindicator)
 
 
 ## Usage
@@ -46,7 +46,7 @@ This application is just a proof-of-concept and might be highly unstable.
 
 ## Build
 
-AppImage executable available here: https://github.com/ark3us/Goclip/releases
+Pre-built AppImage executable available here: https://github.com/ark3us/Goclip/releases
 
 ### Requirements
 ```
