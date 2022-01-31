@@ -25,9 +25,20 @@ const (
 )
 
 type GoclipSettingsGtk struct {
-	db           db.GoclipDB
-	settingsWin  *gtk.Window
-	reloadAppsCb func()
+	db                db.GoclipDB
+	settingsWin       *gtk.Window
+	mainGrid          *gtk.Grid
+	message           *gtk.Label
+	gridRows          int
+	reloadAppsCb      func()
+	currSettings      *db.Settings
+	inputMaxEntries   *gtk.Entry
+	inputClipModKey   *gtk.Entry
+	inputClipHookKey  *gtk.Entry
+	inputAppModKey    *gtk.Entry
+	inputAppHookKey   *gtk.Entry
+	inputShellModKey  *gtk.Entry
+	inputShellHookKey *gtk.Entry
 }
 
 func New(goclipDB db.GoclipDB) *GoclipSettingsGtk {
@@ -108,14 +119,124 @@ func (s *GoclipSettingsGtk) ShowSettings() {
 	glib.IdleAdd(s.showSettings)
 }
 
+func (s *GoclipSettingsGtk) drawClipboardSettings() {
+	label, _ := gtk.LabelNew("Clipboard launcher settings")
+	s.mainGrid.Attach(label, 0, s.gridRows, 2, 1)
+	s.gridRows++
+
+	label, _ = gtk.LabelNew("Maximum entries:")
+	label.SetHAlign(gtk.ALIGN_END)
+	s.mainGrid.Attach(label, 0, s.gridRows, 1, 1)
+
+	s.inputMaxEntries, _ = gtk.EntryNew()
+	s.inputMaxEntries.SetText(strconv.Itoa(s.currSettings.MaxEntries))
+	s.inputMaxEntries.SetHExpand(true)
+	s.mainGrid.Attach(s.inputMaxEntries, 1, s.gridRows, 1, 1)
+	s.gridRows++
+
+	label, _ = gtk.LabelNew("Modkey:")
+	label.SetHAlign(gtk.ALIGN_END)
+	s.mainGrid.Attach(label, 0, s.gridRows, 1, 1)
+
+	s.inputClipModKey, _ = gtk.EntryNew()
+	s.inputClipModKey.SetText(s.currSettings.ClipboardModKey)
+	s.mainGrid.Attach(s.inputClipModKey, 1, s.gridRows, 1, 1)
+	s.gridRows++
+
+	label, _ = gtk.LabelNew("Hotkey:")
+	label.SetHAlign(gtk.ALIGN_END)
+	s.mainGrid.Attach(label, 0, s.gridRows, 1, 1)
+
+	s.inputClipHookKey, _ = gtk.EntryNew()
+	s.inputClipHookKey.SetText(s.currSettings.ClipboardKey)
+	s.mainGrid.Attach(s.inputClipHookKey, 1, s.gridRows, 1, 1)
+	s.gridRows++
+}
+
+func (s *GoclipSettingsGtk) drawAppSettings() {
+	label, _ := gtk.LabelNew("App launcher settings")
+	s.mainGrid.Attach(label, 0, s.gridRows, 2, 1)
+	s.gridRows++
+
+	label, _ = gtk.LabelNew("Modkey:")
+	label.SetHAlign(gtk.ALIGN_END)
+	s.mainGrid.Attach(label, 0, s.gridRows, 1, 1)
+
+	s.inputAppModKey, _ = gtk.EntryNew()
+	s.inputAppModKey.SetText(s.currSettings.AppsModKey)
+	s.inputAppModKey.SetHExpand(true)
+	s.mainGrid.Attach(s.inputAppModKey, 1, s.gridRows, 1, 1)
+	s.gridRows++
+
+	label, _ = gtk.LabelNew("Hotkey:")
+	label.SetHAlign(gtk.ALIGN_END)
+	s.mainGrid.Attach(label, 0, s.gridRows, 1, 1)
+
+	s.inputAppHookKey, _ = gtk.EntryNew()
+	s.inputAppHookKey.SetText(s.currSettings.AppsKey)
+	s.mainGrid.Attach(s.inputAppHookKey, 1, s.gridRows, 1, 1)
+	s.gridRows++
+}
+
+func (s *GoclipSettingsGtk) drawShellSettings() {
+	label, _ := gtk.LabelNew("Shell launcher settings")
+	s.mainGrid.Attach(label, 0, s.gridRows, 2, 1)
+	s.gridRows++
+
+	label, _ = gtk.LabelNew("Modkey:")
+	label.SetHAlign(gtk.ALIGN_END)
+	s.mainGrid.Attach(label, 0, s.gridRows, 1, 1)
+
+	s.inputShellModKey, _ = gtk.EntryNew()
+	s.inputShellModKey.SetText(s.currSettings.ShellModKey)
+	s.inputShellModKey.SetHExpand(true)
+	s.mainGrid.Attach(s.inputShellModKey, 1, s.gridRows, 1, 1)
+	s.gridRows++
+
+	label, _ = gtk.LabelNew("Hotkey:")
+	label.SetHAlign(gtk.ALIGN_END)
+	s.mainGrid.Attach(label, 0, s.gridRows, 1, 1)
+
+	s.inputShellHookKey, _ = gtk.EntryNew()
+	s.inputShellHookKey.SetText(s.currSettings.ShellKey)
+	s.mainGrid.Attach(s.inputShellHookKey, 1, s.gridRows, 1, 1)
+	s.gridRows++
+}
+
+func (s *GoclipSettingsGtk) checkKeyHooks() {
+	clipboardModKey, _ := s.inputClipModKey.GetText()
+	clipboardKey, _ := s.inputClipHookKey.GetText()
+	appsModKey, _ := s.inputAppModKey.GetText()
+	appsKey, _ := s.inputAppHookKey.GetText()
+	shellModKey, _ := s.inputShellModKey.GetText()
+	shellKey, _ := s.inputShellHookKey.GetText()
+
+	if clipboardModKey != s.currSettings.ClipboardModKey || clipboardKey != s.currSettings.ClipboardKey ||
+		appsModKey != s.currSettings.AppsModKey || appsKey != s.currSettings.AppsKey ||
+		shellModKey != s.currSettings.ShellModKey || shellKey != s.currSettings.ShellKey {
+		s.showMessage("Application restart required")
+	}
+
+	s.currSettings.ClipboardModKey = clipboardModKey
+	s.currSettings.ClipboardKey = clipboardKey
+	s.currSettings.AppsModKey = appsModKey
+	s.currSettings.AppsKey = appsKey
+	s.currSettings.ShellModKey = shellModKey
+	s.currSettings.ShellKey = shellKey
+}
+
+func (s *GoclipSettingsGtk) showMessage(text string) {
+	s.message.SetMarkup("<span foreground=\"red\">" + text + "</span>")
+}
+
 func (s *GoclipSettingsGtk) showSettings() {
 	var err error
 	if s.settingsWin != nil {
 		s.settingsWin.Destroy()
 	}
-	settings, err := s.db.GetSettings()
+	s.currSettings, err = s.db.GetSettings()
 	if err != nil {
-		settings = db.DefaultSettings()
+		s.currSettings = db.DefaultSettings()
 	}
 
 	s.settingsWin, err = gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
@@ -123,135 +244,58 @@ func (s *GoclipSettingsGtk) showSettings() {
 		log.Fatal("Error creating settings Window: ", err.Error())
 	}
 	s.settingsWin.SetTitle(utils.AppName + ": Settings")
-	layout, err := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 10)
+	mainLayout, err := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 10)
 
-	message, err := gtk.LabelNew("")
+	s.mainGrid, _ = gtk.GridNew()
+	s.mainGrid.SetRowSpacing(10)
+	s.mainGrid.SetColumnSpacing(10)
+	s.gridRows = 0
+
+	s.message, err = gtk.LabelNew("")
 
 	empty, err := gtk.LabelNew("")
-	layout.Add(empty)
+	mainLayout.Add(empty)
 
-	label, err := gtk.LabelNew("Clipboard settings")
-	layout.Add(label)
+	s.drawClipboardSettings()
+	s.drawAppSettings()
+	s.drawShellSettings()
 
-	grid, _ := gtk.GridNew()
-	grid.SetRowSpacing(10)
-	grid.SetColumnSpacing(10)
-
-	label, err = gtk.LabelNew("Maximum entries:")
-	label.SetHAlign(gtk.ALIGN_END)
-	grid.Attach(label, 0, 0, 1, 1)
-
-	inputMaxEntries, err := gtk.EntryNew()
-	inputMaxEntries.SetText(strconv.Itoa(settings.MaxEntries))
-	inputMaxEntries.SetHExpand(true)
-	grid.Attach(inputMaxEntries, 1, 0, 1, 1)
-
-	label, err = gtk.LabelNew("Modkey:")
-	label.SetHAlign(gtk.ALIGN_END)
-	grid.Attach(label, 0, 1, 1, 1)
-
-	inputModKey, err := gtk.EntryNew()
-	inputModKey.SetText(settings.ClipboardModKey)
-	grid.Attach(inputModKey, 1, 1, 1, 1)
-
-	label, err = gtk.LabelNew("Hotkey:")
-	label.SetHAlign(gtk.ALIGN_END)
-	grid.Attach(label, 0, 2, 1, 1)
-
-	inputKey, err := gtk.EntryNew()
-	inputKey.SetText(settings.ClipboardKey)
-	grid.Attach(inputKey, 1, 2, 1, 1)
-
-	label, err = gtk.LabelNew("App launcher settings")
-	grid.Attach(label, 0, 3, 2, 1)
-
-	label, err = gtk.LabelNew("Modkey:")
-	label.SetHAlign(gtk.ALIGN_END)
-	grid.Attach(label, 0, 4, 1, 1)
-
-	inputAppModKey, err := gtk.EntryNew()
-	inputAppModKey.SetText(settings.AppsModKey)
-	grid.Attach(inputAppModKey, 1, 4, 1, 1)
-
-	label, err = gtk.LabelNew("Hotkey:")
-	label.SetHAlign(gtk.ALIGN_END)
-	grid.Attach(label, 0, 5, 1, 1)
-
-	inputAppKey, err := gtk.EntryNew()
-	inputAppKey.SetText(settings.AppsKey)
-	grid.Attach(inputAppKey, 1, 5, 1, 1)
-
-	label, err = gtk.LabelNew("Shell launcher settings")
-	grid.Attach(label, 0, 6, 2, 1)
-
-	label, err = gtk.LabelNew("Modkey:")
-	label.SetHAlign(gtk.ALIGN_END)
-	grid.Attach(label, 0, 7, 1, 1)
-
-	inputCmdModKey, err := gtk.EntryNew()
-	inputCmdModKey.SetText(settings.CmdModKey)
-	grid.Attach(inputCmdModKey, 1, 7, 1, 1)
-
-	label, err = gtk.LabelNew("Hotkey:")
-	label.SetHAlign(gtk.ALIGN_END)
-	grid.Attach(label, 0, 8, 1, 1)
-
-	inputCmdKey, err := gtk.EntryNew()
-	inputCmdKey.SetText(settings.CmdKey)
-	grid.Attach(inputCmdKey, 1, 8, 1, 1)
-
-	layout.Add(grid)
+	mainLayout.Add(s.mainGrid)
 
 	save, err := gtk.ButtonNew()
 	save.SetLabel("Save")
 	save.Connect("clicked", func() {
-		maxEntries, err := inputMaxEntries.GetText()
-		n, err := strconv.Atoi(maxEntries)
+		maxEntriesStr, _ := s.inputMaxEntries.GetText()
+		maxEntries, err := strconv.Atoi(maxEntriesStr)
 		if err != nil {
-			log.Error("Invalid ClipboardEntry value: ", err.Error())
-			message.SetText("Invalid value")
-			return
+			s.showMessage("Invalid value for Maximum clipboard entries")
+			maxEntries = s.currSettings.MaxEntries
 		}
-		modKey, err := inputModKey.GetText()
-		hookKey, err := inputKey.GetText()
-		appModKey, err := inputAppModKey.GetText()
-		appHookKey, err := inputAppKey.GetText()
-		cmdModKey, err := inputCmdModKey.GetText()
-		cmdHookKey, err := inputCmdKey.GetText()
-		settings.MaxEntries = n
-		if modKey != settings.ClipboardModKey || hookKey != settings.ClipboardKey || appModKey != settings.AppsModKey ||
-			appHookKey != settings.AppsKey || cmdModKey != settings.CmdModKey || cmdHookKey != settings.CmdKey {
-			settings.ClipboardModKey = modKey
-			settings.ClipboardKey = hookKey
-			settings.AppsModKey = appModKey
-			settings.AppsKey = appHookKey
-			settings.CmdModKey = cmdModKey
-			settings.CmdKey = cmdHookKey
-			message.SetLabel("Application restart required")
-		}
-		s.db.SaveSettings(settings)
+		s.currSettings.MaxEntries = maxEntries
+		s.checkKeyHooks()
+		s.db.SaveSettings(s.currSettings)
 	})
-	layout.Add(save)
+	mainLayout.Add(save)
 
 	resetSettings, err := gtk.ButtonNew()
 	resetSettings.SetLabel("Reset settings")
 	resetSettings.Connect("clicked", func() {
-		settings = db.DefaultSettings()
-		s.db.SaveSettings(settings)
-		message.SetLabel("Application restart required")
+		s.currSettings = db.DefaultSettings()
+		s.db.SaveSettings(s.currSettings)
+		s.showMessage("Application restart required")
 	})
-	layout.Add(resetSettings)
+	mainLayout.Add(resetSettings)
 
 	resetDb, err := gtk.ButtonNew()
 	resetDb.SetLabel("Reset Database")
 	resetDb.Connect("clicked", func() {
 		s.db.DropAll()
-		message.SetLabel("Application restart required")
+		s.showMessage("Application restart required")
 	})
-	layout.Add(resetDb)
+	mainLayout.Add(resetDb)
 
-	layout.Add(message)
-	s.settingsWin.Add(layout)
+	mainLayout.Add(s.message)
+	s.settingsWin.Add(mainLayout)
 	s.settingsWin.SetDefaultSize(500, 250)
 	s.settingsWin.SetPosition(gtk.WIN_POS_MOUSE)
 	s.settingsWin.SetKeepAbove(true)

@@ -18,11 +18,6 @@ import (
 
 var dbDir = "~/goclip"
 
-const (
-	argClipboard = "clipboard"
-	argApps      = "apps"
-)
-
 type GoclipListener struct {
 	db           db.GoclipDB
 	clipLauncher ui.GoclipLauncher
@@ -55,7 +50,7 @@ func (s *GoclipListener) startHotkeyListener() {
 	hook.Register(hook.KeyDown, []string{sets.AppsKey, sets.AppsModKey}, func(event hook.Event) {
 		s.appLauncher.ShowEntries()
 	})
-	hook.Register(hook.KeyDown, []string{sets.CmdKey, sets.CmdModKey}, func(event hook.Event) {
+	hook.Register(hook.KeyDown, []string{sets.ShellKey, sets.ShellModKey}, func(event hook.Event) {
 		s.cmdLauncher.ShowEntries()
 	})
 	start := hook.Start()
