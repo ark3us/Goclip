@@ -6,6 +6,7 @@ type GoclipLauncher interface {
 }
 
 type GoclipSettings interface {
+	SetReloadAppsCallback(callback func())
 	ShowSettings()
 	Run()
 }

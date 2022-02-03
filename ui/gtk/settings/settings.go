@@ -3,6 +3,7 @@ package settings
 import (
 	"Goclip/db"
 	"Goclip/log"
+	"Goclip/ui"
 	"Goclip/utils"
 	_ "embed"
 	"github.com/dawidd6/go-appindicator"
@@ -41,7 +42,7 @@ type GoclipSettingsGtk struct {
 	inputShellHookKey *gtk.Entry
 }
 
-func New(goclipDB db.GoclipDB) *GoclipSettingsGtk {
+func New(goclipDB db.GoclipDB) ui.GoclipSettings {
 	return &GoclipSettingsGtk{db: goclipDB}
 }
 
@@ -286,8 +287,17 @@ func (s *GoclipSettingsGtk) showSettings() {
 	})
 	mainLayout.Add(resetSettings)
 
+	resetClip, err := gtk.ButtonNew()
+	resetClip.SetLabel("Reset clipboard")
+	resetClip.Connect("clicked", func() {
+		s.currSettings = db.DefaultSettings()
+		s.db.DropApps()
+		s.showMessage("Application restart required")
+	})
+	mainLayout.Add(resetClip)
+
 	resetDb, err := gtk.ButtonNew()
-	resetDb.SetLabel("Reset Database")
+	resetDb.SetLabel("Reset entire database")
 	resetDb.Connect("clicked", func() {
 		s.db.DropAll()
 		s.showMessage("Application restart required")

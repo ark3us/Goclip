@@ -11,6 +11,7 @@ import (
 	"Goclip/db"
 	"Goclip/log"
 	"Goclip/shellutils"
+	"Goclip/ui"
 	"Goclip/utils"
 	_ "embed"
 	"github.com/gotk3/gotk3/gdk"
@@ -115,7 +116,7 @@ type GoclipLauncherGtk struct {
 	cmdBox     *gtk.Box
 }
 
-func NewClipboardLauncher(myClip *cliputils.ClipboardManager) *GoclipLauncherGtk {
+func NewClipboardLauncher(myClip *cliputils.ClipboardManager) ui.GoclipLauncher {
 	return &GoclipLauncherGtk{
 		clipManager: myClip,
 		lType:       LauncherTypeClipboard,
@@ -123,7 +124,7 @@ func NewClipboardLauncher(myClip *cliputils.ClipboardManager) *GoclipLauncherGtk
 	}
 }
 
-func NewAppsLauncher(appManager *apputils.AppManager) *GoclipLauncherGtk {
+func NewAppsLauncher(appManager *apputils.AppManager) ui.GoclipLauncher {
 	return &GoclipLauncherGtk{
 		appManager: appManager,
 		lType:      LauncherTypeApps,
@@ -131,7 +132,7 @@ func NewAppsLauncher(appManager *apputils.AppManager) *GoclipLauncherGtk {
 	}
 }
 
-func NewShellLauncher(shellManager *shellutils.ShellManager) *GoclipLauncherGtk {
+func NewShellLauncher(shellManager *shellutils.ShellManager) ui.GoclipLauncher {
 	return &GoclipLauncherGtk{
 		lType:        LauncherTypeShell,
 		title:        utils.AppName + ": Shell",

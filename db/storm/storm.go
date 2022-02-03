@@ -19,7 +19,7 @@ type GoclipDBStorm struct {
 	setsDb  *storm.DB
 }
 
-func New(dbDir string) (*GoclipDBStorm, error) {
+func New(dbDir string) (db.GoclipDB, error) {
 	if err := os.MkdirAll(dbDir, os.ModePerm); err != nil {
 		log.Error("Error opening db directory: ", err)
 		return nil, err
