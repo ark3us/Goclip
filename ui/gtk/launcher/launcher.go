@@ -28,6 +28,9 @@ const imgMaxSize = 250
 const iconMaxSize = 25
 const textMaxSize = 100
 
+const opacityStarred = 1.0
+const opacityNotStarred = 0.25
+
 type LauncherType int8
 
 const (
@@ -284,6 +287,25 @@ func (s *GoclipLauncherGtk) drawEntry(entry *db.ClipboardEntry) {
 	if err != nil {
 		log.Fatal("Error creating box: ", err)
 	}
+
+	starButton, err := gtk.ButtonNew()
+	starButton.SetLabel("*")
+	if entry.Starred {
+		starButton.SetOpacity(opacityStarred)
+	} else {
+		starButton.SetOpacity(opacityNotStarred)
+	}
+	starButton.Connect("clicked", func() {
+		s.clipManager.ToggleStar(entry.Md5)
+		if starButton.GetOpacity() < opacityStarred {
+			starButton.SetOpacity(opacityStarred)
+		} else {
+			starButton.SetOpacity(opacityNotStarred)
+		}
+		s.contentWin.Destroy()
+	})
+	row.Add(starButton)
+
 	tsLabel, err := gtk.LabelNew(utils.TimeToString(entry.Timestamp, false))
 	row.Add(tsLabel)
 

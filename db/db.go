@@ -10,6 +10,7 @@ type ClipboardEntry struct {
 	Timestamp time.Time `storm:"index"`
 	Mime      string
 	Data      []byte
+	Starred   bool
 }
 
 func (s *ClipboardEntry) IsText() bool {

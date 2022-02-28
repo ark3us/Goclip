@@ -69,11 +69,29 @@ func (s *ClipboardManager) WriteEntry(entry *db.ClipboardEntry) {
 }
 
 func (s *ClipboardManager) GetEntries() []*db.ClipboardEntry {
-	return s.db.GetClipboardEntries()
+	var newEntries []*db.ClipboardEntry
+	entries := s.db.GetClipboardEntries()
+	for i := range entries {
+		if entries[i].Starred {
+			newEntries = append([]*db.ClipboardEntry{entries[i]}, newEntries...)
+		} else {
+			newEntries = append(newEntries, entries[i])
+		}
+	}
+	return newEntries
 }
 
 func (s *ClipboardManager) GetEntry(md5 string) (*db.ClipboardEntry, error) {
 	return s.db.GetClipboardEntry(md5)
+}
+
+func (s *ClipboardManager) ToggleStar(md5 string) error {
+	entry, err := s.db.GetClipboardEntry(md5)
+	if err != nil {
+		return err
+	}
+	entry.Starred = !entry.Starred
+	return s.db.AddClipboardEntry(entry)
 }
 
 func (s *ClipboardManager) DeleteEntry(md5 string) error {
