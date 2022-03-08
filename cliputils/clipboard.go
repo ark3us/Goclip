@@ -10,11 +10,16 @@ import (
 )
 
 type ClipboardManager struct {
-	db db.GoclipDB
+	db       db.GoclipDB
+	reloadCb func()
 }
 
 func NewClipboardManager(myDb db.GoclipDB) *ClipboardManager {
 	return &ClipboardManager{db: myDb}
+}
+
+func (s *ClipboardManager) SetReloadHistoryCallback(f func()) {
+	s.reloadCb = f
 }
 
 func (s *ClipboardManager) StartListener() {
@@ -33,6 +38,7 @@ func (s *ClipboardManager) startTextListener() {
 			Timestamp: time.Now(),
 		}
 		s.db.AddClipboardEntry(entry)
+		s.reloadCb()
 	}
 }
 
@@ -47,6 +53,7 @@ func (s *ClipboardManager) startImageListener() {
 			Timestamp: time.Now(),
 		}
 		s.db.AddClipboardEntry(entry)
+		s.reloadCb()
 	}
 }
 

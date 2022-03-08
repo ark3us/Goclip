@@ -120,11 +120,13 @@ type GoclipLauncherGtk struct {
 }
 
 func NewClipboardLauncher(myClip *cliputils.ClipboardManager) ui.GoclipLauncher {
-	return &GoclipLauncherGtk{
+	o := &GoclipLauncherGtk{
 		clipManager: myClip,
 		lType:       LauncherTypeClipboard,
 		title:       utils.AppName + ": Clipboard",
 	}
+	myClip.SetReloadHistoryCallback(o.RedrawClipboardHistory)
+	return o
 }
 
 func NewAppsLauncher(appManager *apputils.AppManager) ui.GoclipLauncher {
@@ -411,9 +413,8 @@ func (s *GoclipLauncherGtk) ShowEntries() {
 func (s *GoclipLauncherGtk) drawEntries() {
 	switch s.lType {
 	case LauncherTypeClipboard:
-		s.contentBox, _ = gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 10)
-		for _, entry := range s.clipManager.GetEntries() {
-			s.drawEntry(entry)
+		if s.contentBox == nil {
+			s.RedrawClipboardHistory()
 		}
 	case LauncherTypeApps:
 		if s.contentBox == nil {
@@ -421,6 +422,13 @@ func (s *GoclipLauncherGtk) drawEntries() {
 		}
 	default:
 		s.contentBox, _ = gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 10)
+	}
+}
+
+func (s *GoclipLauncherGtk) RedrawClipboardHistory() {
+	s.contentBox, _ = gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 10)
+	for _, entry := range s.clipManager.GetEntries() {
+		s.drawEntry(entry)
 	}
 }
 
