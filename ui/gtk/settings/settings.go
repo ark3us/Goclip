@@ -14,6 +14,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"strconv"
+	"strings"
 )
 
 //go:embed Goclip.png
@@ -34,11 +35,8 @@ type GoclipSettingsGtk struct {
 	reloadAppsCb      func()
 	currSettings      *db.Settings
 	inputMaxEntries   *gtk.Entry
-	inputClipModKey   *gtk.Entry
 	inputClipHookKey  *gtk.Entry
-	inputAppModKey    *gtk.Entry
 	inputAppHookKey   *gtk.Entry
-	inputShellModKey  *gtk.Entry
 	inputShellHookKey *gtk.Entry
 }
 
@@ -135,21 +133,12 @@ func (s *GoclipSettingsGtk) drawClipboardSettings() {
 	s.mainGrid.Attach(s.inputMaxEntries, 1, s.gridRows, 1, 1)
 	s.gridRows++
 
-	label, _ = gtk.LabelNew("Modkey:")
-	label.SetHAlign(gtk.ALIGN_END)
-	s.mainGrid.Attach(label, 0, s.gridRows, 1, 1)
-
-	s.inputClipModKey, _ = gtk.EntryNew()
-	s.inputClipModKey.SetText(s.currSettings.ClipboardModKey)
-	s.mainGrid.Attach(s.inputClipModKey, 1, s.gridRows, 1, 1)
-	s.gridRows++
-
-	label, _ = gtk.LabelNew("Hotkey:")
+	label, _ = gtk.LabelNew("Shortcut:")
 	label.SetHAlign(gtk.ALIGN_END)
 	s.mainGrid.Attach(label, 0, s.gridRows, 1, 1)
 
 	s.inputClipHookKey, _ = gtk.EntryNew()
-	s.inputClipHookKey.SetText(s.currSettings.ClipboardKey)
+	s.inputClipHookKey.SetText(s.currSettings.ClipboardModKey + "+" + s.currSettings.ClipboardKey)
 	s.mainGrid.Attach(s.inputClipHookKey, 1, s.gridRows, 1, 1)
 	s.gridRows++
 }
@@ -159,22 +148,12 @@ func (s *GoclipSettingsGtk) drawAppSettings() {
 	s.mainGrid.Attach(label, 0, s.gridRows, 2, 1)
 	s.gridRows++
 
-	label, _ = gtk.LabelNew("Modkey:")
-	label.SetHAlign(gtk.ALIGN_END)
-	s.mainGrid.Attach(label, 0, s.gridRows, 1, 1)
-
-	s.inputAppModKey, _ = gtk.EntryNew()
-	s.inputAppModKey.SetText(s.currSettings.AppsModKey)
-	s.inputAppModKey.SetHExpand(true)
-	s.mainGrid.Attach(s.inputAppModKey, 1, s.gridRows, 1, 1)
-	s.gridRows++
-
-	label, _ = gtk.LabelNew("Hotkey:")
+	label, _ = gtk.LabelNew("Shortcut:")
 	label.SetHAlign(gtk.ALIGN_END)
 	s.mainGrid.Attach(label, 0, s.gridRows, 1, 1)
 
 	s.inputAppHookKey, _ = gtk.EntryNew()
-	s.inputAppHookKey.SetText(s.currSettings.AppsKey)
+	s.inputAppHookKey.SetText(s.currSettings.AppsModKey + "+" + s.currSettings.AppsKey)
 	s.mainGrid.Attach(s.inputAppHookKey, 1, s.gridRows, 1, 1)
 	s.gridRows++
 }
@@ -184,33 +163,37 @@ func (s *GoclipSettingsGtk) drawShellSettings() {
 	s.mainGrid.Attach(label, 0, s.gridRows, 2, 1)
 	s.gridRows++
 
-	label, _ = gtk.LabelNew("Modkey:")
-	label.SetHAlign(gtk.ALIGN_END)
-	s.mainGrid.Attach(label, 0, s.gridRows, 1, 1)
-
-	s.inputShellModKey, _ = gtk.EntryNew()
-	s.inputShellModKey.SetText(s.currSettings.ShellModKey)
-	s.inputShellModKey.SetHExpand(true)
-	s.mainGrid.Attach(s.inputShellModKey, 1, s.gridRows, 1, 1)
-	s.gridRows++
-
-	label, _ = gtk.LabelNew("Hotkey:")
+	label, _ = gtk.LabelNew("Shortcut:")
 	label.SetHAlign(gtk.ALIGN_END)
 	s.mainGrid.Attach(label, 0, s.gridRows, 1, 1)
 
 	s.inputShellHookKey, _ = gtk.EntryNew()
-	s.inputShellHookKey.SetText(s.currSettings.ShellKey)
+	s.inputShellHookKey.SetText(s.currSettings.ShellModKey + "+" + s.currSettings.ShellKey)
 	s.mainGrid.Attach(s.inputShellHookKey, 1, s.gridRows, 1, 1)
 	s.gridRows++
 }
 
+func (s *GoclipSettingsGtk) parseShortcut(shortcut string) (string, string) {
+	parts := strings.Split(shortcut, "+")
+	if len(parts) != 2 || len(parts[0]) == 0 || len(parts[1]) == 0 {
+		s.showMessage("Invalid shortcut: " + shortcut)
+		return "", ""
+	}
+	return parts[0], parts[1]
+}
+
 func (s *GoclipSettingsGtk) checkKeyHooks() {
-	clipboardModKey, _ := s.inputClipModKey.GetText()
-	clipboardKey, _ := s.inputClipHookKey.GetText()
-	appsModKey, _ := s.inputAppModKey.GetText()
-	appsKey, _ := s.inputAppHookKey.GetText()
-	shellModKey, _ := s.inputShellModKey.GetText()
-	shellKey, _ := s.inputShellHookKey.GetText()
+	clipboardShortcut, _ := s.inputClipHookKey.GetText()
+	appsShortcut, _ := s.inputAppHookKey.GetText()
+	shellShortcut, _ := s.inputShellHookKey.GetText()
+
+	clipboardModKey, clipboardKey := s.parseShortcut(clipboardShortcut)
+	appsModKey, appsKey := s.parseShortcut(appsShortcut)
+	shellModKey, shellKey := s.parseShortcut(shellShortcut)
+
+	if clipboardKey == "" || appsKey == "" || shellKey == "" {
+		return
+	}
 
 	if clipboardModKey != s.currSettings.ClipboardModKey || clipboardKey != s.currSettings.ClipboardKey ||
 		appsModKey != s.currSettings.AppsModKey || appsKey != s.currSettings.AppsKey ||
@@ -245,6 +228,7 @@ func (s *GoclipSettingsGtk) showSettings() {
 		log.Fatal("Error creating settings Window: ", err.Error())
 	}
 	s.settingsWin.SetTitle(utils.AppName + ": Settings")
+	s.settingsWin.SetBorderWidth(10)
 	mainLayout, err := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 10)
 
 	s.mainGrid, _ = gtk.GridNew()
