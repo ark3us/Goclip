@@ -67,6 +67,7 @@ func (s *ClipboardManager) WriteImage(data []byte) {
 
 func (s *ClipboardManager) WriteEntry(entry *db.ClipboardEntry) {
 	if entry.IsText() {
+		log.Info("Writing text: ", string(entry.Data))
 		s.WriteText(string(entry.Data))
 	} else if entry.IsImage() {
 		clipboard.Write(clipboard.FmtImage, entry.Data)

@@ -284,6 +284,25 @@ func (s *GoclipLauncherGtk) drawSearchBox(layout *gtk.Box) {
 	layout.Add(row)
 }
 
+func (s *GoclipLauncherGtk) handleClick(btn *gtk.Button, evt *gdk.Event, md5 string) {
+	btnEvt := gdk.EventButton{Event: evt}
+	keyEvt := gdk.EventKey{Event: evt}
+	if (keyEvt.Type() == gdk.EVENT_KEY_PRESS && keyEvt.KeyVal() == gdk.KEY_Return) ||
+		(btnEvt.Type() == gdk.EVENT_BUTTON_PRESS && btnEvt.Button() == gdk.BUTTON_PRIMARY) {
+		log.Info("Left click")
+		if entry, err := s.clipManager.GetEntry(md5); err == nil {
+			s.clipManager.WriteEntry(entry)
+		}
+		s.contentWin.Destroy()
+	} else if btnEvt.Type() == gdk.EVENT_BUTTON_PRESS && btnEvt.Button() == gdk.BUTTON_SECONDARY {
+		log.Info("Right click")
+		if entry, err := s.clipManager.GetEntry(md5); err == nil {
+			shellutils.OpenEntry(entry)
+		}
+		s.contentWin.Destroy()
+	}
+}
+
 func (s *GoclipLauncherGtk) drawEntry(entry *db.ClipboardEntry) {
 	row, err := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 10)
 	if err != nil {
@@ -333,21 +352,10 @@ func (s *GoclipLauncherGtk) drawEntry(entry *db.ClipboardEntry) {
 
 	md5 := entry.Md5
 	entryButton.Connect("button-press-event", func(btn *gtk.Button, evt *gdk.Event) {
-		btnEvt := gdk.EventButton{Event: evt}
-		if btnEvt.Type() == gdk.EVENT_BUTTON_PRESS {
-			if btnEvt.Button() == gdk.BUTTON_PRIMARY {
-				log.Info("Left click")
-				if entry, err := s.clipManager.GetEntry(md5); err == nil {
-					s.clipManager.WriteEntry(entry)
-				}
-			} else if btnEvt.Button() == gdk.BUTTON_SECONDARY {
-				log.Info("Right click")
-				if entry, err := s.clipManager.GetEntry(md5); err == nil {
-					shellutils.OpenEntry(entry)
-				}
-			}
-			s.contentWin.Destroy()
-		}
+		s.handleClick(btn, evt, md5)
+	})
+	entryButton.Connect("key-press-event", func(btn *gtk.Button, evt *gdk.Event) {
+		s.handleClick(btn, evt, md5)
 	})
 	row.Add(entryButton)
 
