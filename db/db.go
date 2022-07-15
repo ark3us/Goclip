@@ -37,24 +37,18 @@ type ShellEntry struct {
 }
 
 type Settings struct {
-	MaxEntries      int
-	ClipboardModKey string
-	ClipboardKey    string
-	AppsModKey      string
-	AppsKey         string
-	ShellModKey     string
-	ShellKey        string
+	MaxEntries        int
+	ClipboardShortcut string
+	AppsShortcut      string
+	ShellShortcut     string
 }
 
 func DefaultSettings() *Settings {
 	return &Settings{
-		MaxEntries:      100,
-		ClipboardModKey: "win",
-		ClipboardKey:    "v",
-		AppsModKey:      "win",
-		AppsKey:         "c",
-		ShellModKey:     "win",
-		ShellKey:        "x",
+		MaxEntries:        100,
+		ClipboardShortcut: "alt+v",
+		AppsShortcut:      "alt+c",
+		ShellShortcut:     "alt+x",
 	}
 }
 

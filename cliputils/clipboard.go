@@ -5,6 +5,7 @@ import (
 	"Goclip/log"
 	"Goclip/utils"
 	"context"
+	"github.com/go-vgo/robotgo"
 	"golang.design/x/clipboard"
 	"time"
 )
@@ -69,6 +70,15 @@ func (s *ClipboardManager) WriteEntry(entry *db.ClipboardEntry) {
 	if entry.IsText() {
 		log.Info("Writing text: ", string(entry.Data))
 		s.WriteText(string(entry.Data))
+		go func() {
+			time.Sleep(time.Millisecond * 200)
+			robotgo.KeyDown("ctrl")
+			robotgo.KeyDown("shift")
+			robotgo.KeyDown("v")
+			robotgo.KeyUp("v")
+			robotgo.KeyUp("shift")
+			robotgo.KeyUp("ctrl")
+		}()
 	} else if entry.IsImage() {
 		clipboard.Write(clipboard.FmtImage, entry.Data)
 	} else {

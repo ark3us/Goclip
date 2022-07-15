@@ -13,16 +13,16 @@ This application is just a proof-of-concept and might be highly unstable.
 - Data persistence (https://github.com/asdine/storm)
 - System shortcut (https://github.com/robotn/gohook)
 - Gtk3 UI (https://github.com/gotk3/gotk3)
-- Appindicator system tray (https://github.com/dawidd6/go-appindicator)
+- System tray (https://github.com/fyne-io/systray)
 
 
 ## Usage
 
 ### Default hotkeys
 
-- Win+V : open clipboard manager
-- Win+C : open app launcher
-- Win+x : open shell launcher
+- Alt+V : open clipboard manager
+- Alt+C : open app launcher
+- Alt+x : open shell launcher
 
 ### Clipbord manager shortcuts
 
@@ -59,8 +59,6 @@ sudo apt install xsel xclip
 sudo apt install libx11-dev
 # For https://github.com/gotk3/gotk3
 sudo apt install libgtk-3-dev libcairo2-dev libglib2.0-dev
-# For https://github.com/getlantern/systray
-sudo apt-get install gcc libgtk-3-dev libappindicator3-dev
 ```
 
 ## Improvements

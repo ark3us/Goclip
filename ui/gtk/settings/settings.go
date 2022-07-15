@@ -6,13 +6,9 @@ import (
 	"Goclip/ui"
 	"Goclip/utils"
 	_ "embed"
-	"github.com/dawidd6/go-appindicator"
+	"fyne.io/systray"
 	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
-	"io/ioutil"
-	"os"
-	"os/user"
-	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -38,10 +34,15 @@ type GoclipSettingsGtk struct {
 	inputClipHookKey  *gtk.Entry
 	inputAppHookKey   *gtk.Entry
 	inputShellHookKey *gtk.Entry
+
+	clipLauncher ui.GoclipLauncher
+	appLauncher  ui.GoclipLauncher
+	cmdLauncher  ui.GoclipLauncher
 }
 
-func New(goclipDB db.GoclipDB) ui.GoclipSettings {
-	return &GoclipSettingsGtk{db: goclipDB}
+func New(goclipDB db.GoclipDB, clipLauncher, appLauncher, shellLauncher ui.GoclipLauncher) ui.GoclipSettings {
+	return &GoclipSettingsGtk{
+		db: goclipDB, clipLauncher: clipLauncher, appLauncher: appLauncher, cmdLauncher: shellLauncher}
 }
 
 func (s *GoclipSettingsGtk) SetReloadAppsCallback(callback func()) {
@@ -50,68 +51,46 @@ func (s *GoclipSettingsGtk) SetReloadAppsCallback(callback func()) {
 
 func (s *GoclipSettingsGtk) Run() {
 	gtk.Init(nil)
-	menu, err := gtk.MenuNew()
-	if err != nil {
-		log.Error("Error creating menu:", err)
-		return
-	}
-	item, err := gtk.MenuItemNewWithLabel("Settings")
-	item.Connect("activate", func() {
-		s.ShowSettings()
-	})
-	menu.Add(item)
-
-	item, err = gtk.MenuItemNewWithLabel("Reload apps")
-	item.Connect("activate", func() {
-		if s.reloadAppsCb != nil {
-			go s.reloadAppsCb()
-		} else {
-			log.Error("No callback set")
-		}
-	})
-	menu.Add(item)
-
-	item, err = gtk.MenuItemNewWithLabel("Quit")
-	item.Connect("activate", func() {
-		gtk.MainQuit()
-	})
-	menu.Add(item)
-
-	iconDir := ""
-	usr, err := user.Current()
-	if err != nil {
-		log.Warning("Cannot get current user: ", err)
-	} else {
-		iconDir = filepath.Join(usr.HomeDir, relIconDir)
-		iconFile := filepath.Join(iconDir, relIconFile)
-		if _, err := os.Stat(iconFile); err != nil {
-			log.Info("Trying to create icon dir: ", iconDir)
-			if err := os.MkdirAll(iconDir, os.ModePerm); err != nil {
-				log.Warning("Cannot create icon path: ", err)
-			} else {
-				log.Info("Saving icon file: ", iconFile)
-				if err := ioutil.WriteFile(iconFile, iconData, 0644); err != nil {
-					log.Warning("Cannot save icon: ", iconFile)
-				}
-			}
-		} else {
-			log.Info("Icon already present: ", iconFile)
-		}
-	}
-
-	indicator := appindicator.New(utils.AppId, iconName, appindicator.CategoryApplicationStatus)
-	indicator.SetIconThemePath(iconDir)
-	indicator.SetTitle(utils.AppName)
-	indicator.SetLabel(utils.AppName, utils.AppName)
-	indicator.SetStatus(appindicator.StatusActive)
-	indicator.SetMenu(menu)
-	menu.ShowAll()
-	menu.Connect("show", func() {
-		if s.reloadAppsCb != nil {
-			go s.reloadAppsCb()
-		}
-	})
+	go systray.Run(s.onReady, onExit)
 	gtk.Main()
+}
+
+func (s *GoclipSettingsGtk) onReady() {
+	systray.SetTitle("GoClip")
+	systray.SetIcon(iconData)
+	mClip := systray.AddMenuItem("Clipboard", "")
+	mApp := systray.AddMenuItem("Apps", "")
+	mShell := systray.AddMenuItem("Shell", "")
+	mSettings := systray.AddMenuItem("Settings", "")
+	mReload := systray.AddMenuItem("Reload Apps", "")
+	mQuit := systray.AddMenuItem("Quit", "")
+	if s.reloadAppsCb != nil {
+		log.Info("Reloading apps...")
+		go s.reloadAppsCb()
+	}
+	for {
+		select {
+		case <-mClip.ClickedCh:
+			s.clipLauncher.ShowEntries()
+		case <-mApp.ClickedCh:
+			s.appLauncher.ShowEntries()
+		case <-mShell.ClickedCh:
+			s.cmdLauncher.ShowEntries()
+		case <-mSettings.ClickedCh:
+			s.ShowSettings()
+		case <-mReload.ClickedCh:
+			if s.reloadAppsCb != nil {
+				go s.reloadAppsCb()
+			} else {
+				log.Error("No callback set")
+			}
+		case <-mQuit.ClickedCh:
+			gtk.MainQuit()
+		}
+	}
+}
+
+func onExit() {
 }
 
 func (s *GoclipSettingsGtk) ShowSettings() {
@@ -138,7 +117,7 @@ func (s *GoclipSettingsGtk) drawClipboardSettings() {
 	s.mainGrid.Attach(label, 0, s.gridRows, 1, 1)
 
 	s.inputClipHookKey, _ = gtk.EntryNew()
-	s.inputClipHookKey.SetText(s.currSettings.ClipboardModKey + "+" + s.currSettings.ClipboardKey)
+	s.inputClipHookKey.SetText(s.currSettings.ClipboardShortcut)
 	s.mainGrid.Attach(s.inputClipHookKey, 1, s.gridRows, 1, 1)
 	s.gridRows++
 }
@@ -153,7 +132,7 @@ func (s *GoclipSettingsGtk) drawAppSettings() {
 	s.mainGrid.Attach(label, 0, s.gridRows, 1, 1)
 
 	s.inputAppHookKey, _ = gtk.EntryNew()
-	s.inputAppHookKey.SetText(s.currSettings.AppsModKey + "+" + s.currSettings.AppsKey)
+	s.inputAppHookKey.SetText(s.currSettings.AppsShortcut)
 	s.mainGrid.Attach(s.inputAppHookKey, 1, s.gridRows, 1, 1)
 	s.gridRows++
 }
@@ -168,7 +147,7 @@ func (s *GoclipSettingsGtk) drawShellSettings() {
 	s.mainGrid.Attach(label, 0, s.gridRows, 1, 1)
 
 	s.inputShellHookKey, _ = gtk.EntryNew()
-	s.inputShellHookKey.SetText(s.currSettings.ShellModKey + "+" + s.currSettings.ShellKey)
+	s.inputShellHookKey.SetText(s.currSettings.ShellShortcut)
 	s.mainGrid.Attach(s.inputShellHookKey, 1, s.gridRows, 1, 1)
 	s.gridRows++
 }
@@ -187,26 +166,13 @@ func (s *GoclipSettingsGtk) checkKeyHooks() {
 	appsShortcut, _ := s.inputAppHookKey.GetText()
 	shellShortcut, _ := s.inputShellHookKey.GetText()
 
-	clipboardModKey, clipboardKey := s.parseShortcut(clipboardShortcut)
-	appsModKey, appsKey := s.parseShortcut(appsShortcut)
-	shellModKey, shellKey := s.parseShortcut(shellShortcut)
-
-	if clipboardKey == "" || appsKey == "" || shellKey == "" {
-		return
-	}
-
-	if clipboardModKey != s.currSettings.ClipboardModKey || clipboardKey != s.currSettings.ClipboardKey ||
-		appsModKey != s.currSettings.AppsModKey || appsKey != s.currSettings.AppsKey ||
-		shellModKey != s.currSettings.ShellModKey || shellKey != s.currSettings.ShellKey {
+	if clipboardShortcut != s.currSettings.ClipboardShortcut || appsShortcut != s.currSettings.AppsShortcut || shellShortcut != s.currSettings.ShellShortcut {
 		s.showMessage("Application restart required")
 	}
 
-	s.currSettings.ClipboardModKey = clipboardModKey
-	s.currSettings.ClipboardKey = clipboardKey
-	s.currSettings.AppsModKey = appsModKey
-	s.currSettings.AppsKey = appsKey
-	s.currSettings.ShellModKey = shellModKey
-	s.currSettings.ShellKey = shellKey
+	s.currSettings.ClipboardShortcut = clipboardShortcut
+	s.currSettings.AppsShortcut = appsShortcut
+	s.currSettings.ShellShortcut = shellShortcut
 }
 
 func (s *GoclipSettingsGtk) showMessage(text string) {

@@ -44,13 +44,13 @@ func (s *GoclipListener) startHotkeyListener() {
 		sets = db.DefaultSettings()
 	}
 	hook.Keycode["win"] = 125
-	hook.Register(hook.KeyDown, []string{sets.ClipboardKey, sets.ClipboardModKey}, func(event hook.Event) {
+	hook.Register(hook.KeyDown, strings.Split(sets.ClipboardShortcut, "+"), func(event hook.Event) {
 		s.clipLauncher.ShowEntries()
 	})
-	hook.Register(hook.KeyDown, []string{sets.AppsKey, sets.AppsModKey}, func(event hook.Event) {
+	hook.Register(hook.KeyDown, strings.Split(sets.AppsShortcut, "+"), func(event hook.Event) {
 		s.appLauncher.ShowEntries()
 	})
-	hook.Register(hook.KeyDown, []string{sets.ShellKey, sets.ShellModKey}, func(event hook.Event) {
+	hook.Register(hook.KeyDown, strings.Split(sets.ShellShortcut, "+"), func(event hook.Event) {
 		s.cmdLauncher.ShowEntries()
 	})
 	start := hook.Start()
@@ -77,7 +77,7 @@ func main() {
 	appLauncher := launcher.NewAppsLauncher(appManager)
 	cmdLauncher := launcher.NewShellLauncher(shellManager)
 
-	settingsApp := settings.New(goclipDb)
+	settingsApp := settings.New(goclipDb, clipLauncher, appLauncher, cmdLauncher)
 	settingsApp.SetReloadAppsCallback(appLauncher.RedrawApps)
 
 	log.Info("Starting listener")
