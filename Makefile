@@ -1,2 +1,2 @@
 all:
-	go build -o Goclip ./cmd/main
+	go build -o goclip

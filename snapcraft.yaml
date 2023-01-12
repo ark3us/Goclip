@@ -1,0 +1,46 @@
+name: goclip
+summary: Simple Windows-like clipboard manager and command launcher for Linux
+description: |
+  Simple Windows-like clipboard manager and command launcher for Linux, written in Go.
+version: git
+grade: stable
+base: core22
+
+confinement: strict
+
+apps:
+  goclip:
+    command: bin/main
+    plugs:
+      - home
+parts:
+  goclip:
+    plugin: go
+    source-type: git
+    source: .
+    stage-packages:
+      - xcb
+      - x11-xkb-utils
+      - libx11-xcb1
+      - libxcb-xkb1
+      - libxkbcommon-x11-0
+      - libgtk-3-0
+      - libcairo2
+      - libglib2.0-0
+      - libxtst6
+
+build-snaps:
+  - go
+
+build-packages:
+  - xcb
+  - libxcb-xkb-dev
+  - x11-xkb-utils
+  - libx11-xcb-dev
+  - libxkbcommon-x11-dev
+  - libxkbcommon-dev
+  - libx11-dev
+  - libgtk-3-dev
+  - libcairo2-dev
+  - libglib2.0-dev
+
