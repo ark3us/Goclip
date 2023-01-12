@@ -51,10 +51,7 @@ Pre-built AppImage executable available here: https://github.com/ark3us/Goclip/r
 ### Requirements
 ```
 # For https://github.com/robotn/gohook 
-sudo apt install gcc libc6-dev
-sudo apt install libx11-dev xorg-dev libxtst-dev libpng++-dev
 sudo apt install xcb libxcb-xkb-dev x11-xkb-utils libx11-xcb-dev libxkbcommon-x11-dev libxkbcommon-dev
-sudo apt install xsel xclip
 # For https://github.com/golang-design/clipboard
 sudo apt install libx11-dev
 # For https://github.com/gotk3/gotk3
