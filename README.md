@@ -52,6 +52,10 @@ To build a snap package, just run:
 ```
 snapcraft
 ```
+Then install with:
+```
+sudo snap install goclip_<version>_amd64.snap --dangerous --classic
+```
 
 ### Manual
 
