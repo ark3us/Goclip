@@ -46,9 +46,16 @@ This application is just a proof-of-concept and might be highly unstable.
 
 ## Build
 
-Pre-built AppImage executable available here: https://github.com/ark3us/Goclip/releases
+### Snapcraft
 
-### Requirements
+To build a snap package, just run:
+```
+snapcraft
+```
+
+### Manual
+
+To build manually, install the following requirements:
 ```
 # For https://github.com/robotn/gohook 
 sudo apt install xcb libxcb-xkb-dev x11-xkb-utils libx11-xcb-dev libxkbcommon-x11-dev libxkbcommon-dev
@@ -56,6 +63,10 @@ sudo apt install xcb libxcb-xkb-dev x11-xkb-utils libx11-xcb-dev libxkbcommon-x1
 sudo apt install libx11-dev
 # For https://github.com/gotk3/gotk3
 sudo apt install libgtk-3-dev libcairo2-dev libglib2.0-dev
+```
+Then simply run:
+```
+go build
 ```
 
 ## Improvements
