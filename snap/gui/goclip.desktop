@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=Goclip
+Type=Application
+Terminal=false
+Exec=goclip
+Icon=${SNAP}/meta/gui/Goclip.png

@@ -6,7 +6,7 @@ version: git
 grade: stable
 base: core22
 
-confinement: strict
+confinement: classic
 
 apps:
   goclip:
@@ -17,7 +17,7 @@ parts:
   goclip:
     plugin: go
     source-type: git
-    source: .
+    source: https://github.com/ark3us/Goclip
     stage-packages:
       - xcb
       - x11-xkb-utils
